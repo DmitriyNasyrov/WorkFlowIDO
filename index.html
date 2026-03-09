@@ -108,6 +108,36 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 [data-theme="dark"] .login-box{background:#232018;border-color:#38332E}
 
 /* ── MOBILE ───────────────────────────────────────── */
+
+/* ── MOBILE HOME COMPONENTS (Teachbase-style) ────── */
+.mob-section-title{font-size:1.3rem;font-weight:800;color:#1A1714;letter-spacing:-.02em;margin-bottom:1rem}
+.mob-hero-card{border-radius:20px;padding:1.25rem 1.375rem;margin-bottom:.875rem;position:relative;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,opacity .12s}
+.mob-hero-card:active{transform:scale(.98);opacity:.92}
+.mob-hero-title{font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:.375rem;line-height:1.2}
+.mob-hero-sub{font-size:.82rem;color:rgba(255,255,255,.8);line-height:1.4}
+.mob-hero-arrow{position:absolute;right:1.25rem;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center}
+.mob-action-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.875rem}
+.mob-action-btn{background:#fff;border-radius:18px;padding:1.125rem 1rem;display:flex;flex-direction:column;gap:.5rem;box-shadow:0 1px 4px rgba(26,23,20,.08),0 0 0 1px rgba(26,23,20,.05);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .12s;border:none;text-align:left;width:100%}
+.mob-action-btn:active{transform:scale(.96);box-shadow:0 1px 2px rgba(26,23,20,.06)}
+.mob-action-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mob-action-label{font-size:.875rem;font-weight:700;color:#1A1714;line-height:1.2}
+.mob-action-sub{font-size:.73rem;color:#9E9890;font-weight:500}
+.mob-list-item{background:#fff;border-radius:16px;padding:1rem 1.125rem;display:flex;align-items:center;gap:.875rem;margin-bottom:.625rem;box-shadow:0 1px 3px rgba(26,23,20,.06),0 0 0 1px rgba(26,23,20,.04);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s}
+.mob-list-item:active{transform:scale(.98)}
+.mob-list-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mob-list-body{flex:1;min-width:0}
+.mob-list-title{font-size:.9rem;font-weight:700;color:#1A1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mob-list-sub{font-size:.76rem;color:#9E9890;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mob-list-right{flex-shrink:0;display:flex;align-items:center}
+.mob-greeting{padding:1.5rem .875rem .25rem;margin-bottom:0}
+.mob-greeting-name{font-size:1.6rem;font-weight:800;color:#1A1714;letter-spacing:-.03em;line-height:1.1}
+.mob-greeting-date{font-size:.82rem;color:#9E9890;margin-top:.375rem;font-weight:500}
+.mob-page-content{padding:0 .875rem 96px}
+[data-theme="dark"] .mob-action-btn{background:#232018;box-shadow:0 1px 4px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.06)}
+[data-theme="dark"] .mob-list-item{background:#232018;box-shadow:0 1px 3px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.05)}
+[data-theme="dark"] .mob-section-title{color:#F0EDE8}
+[data-theme="dark"] .mob-action-label{color:#F0EDE8}
+[data-theme="dark"] .mob-greeting-name{color:#F0EDE8}
 @media(max-width:768px){
   .app-sidebar{position:fixed;left:0;top:0;bottom:0;z-index:300;transform:translateX(-260%);width:260px}
   .app-sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vw transparent,4px 0 32px rgba(26,23,20,.2)}
@@ -635,32 +665,92 @@ function cCard(course){
 // MANAGER: DASHBOARD
 // ═══════════════════════════════════════════════
 function pgDashboard(){
-  const{courses,msgs,prof}=S;const wrap=dv({maxWidth:'1280px'});wrap.className='fade page-wide';
-  wrap.appendChild(hx(1,{margin:'0 0 .2rem',fontSize:'1.5rem',fontWeight:'800',color:C.tx},`Добрый день, ${(prof.full_name||'').split(' ')[0]} 👋`));
-  wrap.appendChild(dv({margin:'0 0 2rem',color:C.txS,fontSize:'.875rem'},new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})));
+  const{courses,msgs,prof}=S;
+  const wrap=dv({maxWidth:'1280px'});wrap.className='fade page-wide';
   const upcoming=courses.flatMap(c=>(c.lectures||[]).filter(l=>{const d=daysUntil(l.date);return d>=0&&d<=7;}).map(l=>({...l,cName:c.title,cId:c.id,cCol:c.color}))).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const urgent=courses.flatMap(c=>(c.tasks||[]).filter(t=>t.status!=='done'&&daysUntil(t.deadline)<=2).map(t=>({...t,cName:c.title,cId:c.id}))).sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
   const unread=msgs.filter(m=>m.receiver_id===prof.id&&!m.read).length;
-  const statsRow=document.createElement('div');statsRow.className='grid-4';statsRow.style.marginBottom='2rem';
-  [{lbl:'Активных курсов',val:courses.length,icon:'courses',col:C.ac,sub:`${courses.reduce((s,c)=>s+(c.students?.length||0),0)} слушателей`},{lbl:'Лекций на неделе',val:upcoming.length,icon:'cal',col:C.bl},{lbl:'Срочных задач',val:urgent.length,icon:'tasks',col:urgent.length>0?C.rd:C.gr},{lbl:'Новых сообщений',val:unread,icon:'msg',col:C.pu}].forEach(s=>{
-    const c2=document.createElement('div');c2.className='stat-card';
-    c2.appendChild(Object.assign(document.createElement('div'),{className:'stat-card-lbl',textContent:s.lbl}));
-    const valEl=Object.assign(document.createElement('div'),{className:'stat-card-val',textContent:String(s.val)});
-    valEl.style.color=s.col;c2.appendChild(valEl);
-    if(s.sub)c2.appendChild(Object.assign(document.createElement('div'),{className:'stat-card-sub',textContent:s.sub}));
-    statsRow.appendChild(c2);
-  });;wrap.appendChild(statsRow);
-  const cols=dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1.5rem',marginBottom:'2rem'});
-  const upCard=card(null);upCard.style.padding='1.25rem';upCard.appendChild(sHead('cal','Ближайшие лекции',upcoming.length,C.bl));
-  if(!upcoming.length)upCard.appendChild(empty('Нет лекций на этой неделе'));
-  else upcoming.slice(0,5).forEach(l=>{const dd=daysUntil(l.date);const row=dv({display:'flex',gap:'.75rem',padding:'.625rem 0',borderBottom:`1px solid ${C.brd}`,cursor:'pointer',alignItems:'center'});const db=dv({textAlign:'center',minWidth:'44px',background:C.bg,borderRadius:'8px',padding:'4px 6px',border:`1px solid ${C.brd}`});db.appendChild(dv({fontSize:'1.1rem',fontWeight:'800',color:l.cCol||C.ac,lineHeight:'1'},String(new Date(l.date).getDate())));db.appendChild(dv({fontSize:'.6rem',color:C.txT,textTransform:'uppercase'},new Date(l.date).toLocaleDateString('ru-RU',{month:'short'})));row.appendChild(db);const inf=dv({flex:'1'});inf.appendChild(dv({fontSize:'.85rem',fontWeight:'600',color:C.tx,marginBottom:'2px'},l.topic));inf.appendChild(dv({fontSize:'.73rem',color:C.txS},`${l.cName} · ${l.time||''}`));row.appendChild(inf);row.appendChild(badge(dd===0?'Сегодня':dd===1?'Завтра':`+${dd}д`,dd===0?'red':dd===1?'yellow':'blue'));row.onclick=()=>setS({nav:'course',cid:l.cId,cd:null,activeTab:'schedule'});upCard.appendChild(row);});cols.appendChild(upCard);
-  const urgCard=card(null);urgCard.style.padding='1.25rem';urgCard.appendChild(sHead('tasks','Срочные задачи',urgent.length,C.rd));
-  if(!urgent.length)urgCard.appendChild(empty('Нет срочных задач'));
-  else urgent.slice(0,5).forEach(t=>{const dd=daysUntil(t.deadline);const row=dv({display:'flex',gap:'.75rem',padding:'.625rem 0',borderBottom:`1px solid ${C.brd}`,cursor:'pointer',alignItems:'flex-start'});row.appendChild(dv({width:'8px',height:'8px',borderRadius:'50%',marginTop:'6px',flexShrink:'0',background:t.priority==='high'?C.rd:C.yw}));const inf=dv({flex:'1'});inf.appendChild(dv({fontSize:'.85rem',fontWeight:'600',color:C.tx},t.title));inf.appendChild(dv({fontSize:'.73rem',color:C.txS},t.cName));row.appendChild(inf);row.appendChild(sp({fontSize:'.72rem',color:dd<0?C.rd:C.yw,fontWeight:'600'},dd<0?`+${Math.abs(dd)}д просроч.`:dd===0?'Сегодня':`до ${fmtS(t.deadline)}`));row.onclick=()=>setS({nav:'course',cid:t.cId,cd:null,activeTab:'tasks'});urgCard.appendChild(row);});cols.appendChild(urgCard);
-  wrap.appendChild(cols);
-  wrap.appendChild(hx(2,{fontSize:'1rem',fontWeight:'700',color:C.tx,marginBottom:'1rem'},'Все курсы'));
-  const grid=dv({display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'1rem'});grid.className='grid-auto';
-  courses.forEach(c=>grid.appendChild(cCard(c)));if(!courses.length)grid.appendChild(empty('Нет курсов'));wrap.appendChild(grid);return wrap;
+
+  if(isMob()){
+    // ── MOBILE LAYOUT (Teachbase-style) ──
+    wrap.style.padding='0';
+    wrap.appendChild(mobGreeting(prof.full_name||'',new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})));
+    const content=dv({});content.className='mob-page-content';
+
+    // Hero card — next lecture or active courses
+    if(upcoming.length){
+      const next=upcoming[0];
+      content.appendChild(mobHeroCard(
+        'Ближайшая лекция',
+        next.topic+' · '+fmt(next.date)+(next.time?' в '+next.time:''),
+        `linear-gradient(135deg,${next.cCol||C.ac},${next.cCol||C.ac}99)`,
+        ()=>setS({nav:'course',cid:next.cId})
+      ));
+    } else {
+      content.appendChild(mobHeroCard('Добро пожаловать!','Создайте первый курс чтобы начать работу',`linear-gradient(135deg,${C.ac},#e8955a)`,()=>setS({nav:'courses'})));
+    }
+
+    // Quick actions 2x2 grid
+    const actRow=document.createElement('div');actRow.className='mob-action-row';
+    actRow.appendChild(mobActionBtn('courses',C.ac,'#FDF3E7','Курсы',`${courses.length} активных`,()=>setS({nav:'courses'})));
+    actRow.appendChild(mobActionBtn('tasks',urgent.length>0?C.rd:C.gr,urgent.length>0?'#FDF0EE':'#EDFAF3','Задачи',urgent.length>0?`${urgent.length} срочных`:'Без срочных',()=>setS({nav:'tasks'})));
+    actRow.appendChild(mobActionBtn('msg',C.bl,'#EEF3FF','Сообщения',unread>0?`${unread} новых`:'Нет новых',()=>setS({nav:'msgs'})));
+    actRow.appendChild(mobActionBtn('cal',C.pu,'#F3EEFF','Календарь',`${upcoming.length} на неделе`,()=>setS({nav:'cal'})));
+    content.appendChild(actRow);
+
+    // Recent courses list
+    if(courses.length){
+      content.appendChild(mobTitle('Мои курсы'));
+      courses.slice(0,4).forEach(c=>{
+        const pct2=Math.round(pct(c)*100);
+        const arr=document.createElement('div');
+        arr.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9E9890" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+        content.appendChild(mobListItem('courses',c.color||C.ac,(c.color||C.ac)+'22',c.title,
+          `${(c.students||[]).length} слушателей · ${pct2}%`,arr,()=>setS({nav:'course',cid:c.id})));
+      });
+    }
+
+    // Upcoming lectures
+    if(upcoming.length>1){
+      content.appendChild(mobTitle('Расписание на неделе'));
+      upcoming.slice(0,3).forEach(l=>{
+        const timeEl=sp({fontSize:'.76rem',fontWeight:'700',color:C.ac},fmt(l.date)+(l.time?' · '+l.time:''));
+        content.appendChild(mobListItem('cal',C.bl,'#EEF3FF',l.topic,l.cName,timeEl,()=>setS({nav:'course',cid:l.cId})));
+      });
+    }
+    wrap.appendChild(content);
+  } else {
+    // ── DESKTOP LAYOUT (unchanged) ──
+    wrap.appendChild(hx(1,{margin:'0 0 .2rem',fontSize:'1.5rem',fontWeight:'800',color:C.tx},`Добрый день, ${(prof.full_name||'').split(' ')[0]} 👋`));
+    wrap.appendChild(dv({margin:'0 0 2rem',color:C.txS,fontSize:'.875rem'},new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})));
+    const statsRow=document.createElement('div');statsRow.className='grid-4';statsRow.style.marginBottom='2rem';
+    [{lbl:'Активных курсов',val:courses.length,icon:'courses',col:C.ac,sub:`${courses.reduce((s,c)=>s+(c.students?.length||0),0)} слушателей`},{lbl:'Лекций на неделе',val:upcoming.length,icon:'cal',col:C.bl},{lbl:'Срочных задач',val:urgent.length,icon:'tasks',col:urgent.length>0?C.rd:C.gr},{lbl:'Новых сообщений',val:unread,icon:'msg',col:C.pu}].forEach(s=>{
+      const c2=document.createElement('div');c2.className='stat-card';
+      c2.appendChild(Object.assign(document.createElement('div'),{className:'stat-card-lbl',textContent:s.lbl}));
+      const valEl=Object.assign(document.createElement('div'),{className:'stat-card-val',textContent:String(s.val)});
+      valEl.style.color=s.col;c2.appendChild(valEl);
+      if(s.sub)c2.appendChild(Object.assign(document.createElement('div'),{className:'stat-card-sub',textContent:s.sub}));
+      statsRow.appendChild(c2);
+    });
+    wrap.appendChild(statsRow);
+    const bot=document.createElement('div');bot.className='grid-2';bot.style.marginBottom='2rem';
+    // Upcoming lectures card
+    const ulCard=card(null);ulCard.style.padding='1.25rem';
+    ulCard.appendChild(dv({fontWeight:'800',fontSize:'1rem',color:C.tx,marginBottom:'1rem'},'Ближайшие лекции'));
+    if(!upcoming.length)ulCard.appendChild(dv({color:C.txS,fontSize:'.875rem'},'Нет лекций на этой неделе'));
+    else upcoming.slice(0,4).forEach(l=>{const r=dv({display:'flex',gap:'.75rem',alignItems:'center',padding:'.5rem 0',borderBottom:`1px solid ${C.brd}`});r.appendChild(dv({width:'8px',height:'8px',borderRadius:'50%',background:l.cCol||C.ac,flexShrink:'0'}));const inf=dv({flex:'1',minWidth:'0'});inf.appendChild(dv({fontSize:'.84rem',fontWeight:'700',color:C.tx,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},l.topic));inf.appendChild(dv({fontSize:'.75rem',color:C.txS},l.cName+' · '+fmt(l.date)));r.appendChild(inf);ulCard.appendChild(r);});
+    bot.appendChild(ulCard);
+    // Urgent tasks card
+    const utCard=card(null);utCard.style.padding='1.25rem';
+    utCard.appendChild(dv({fontWeight:'800',fontSize:'1rem',color:C.tx,marginBottom:'1rem'},'Срочные задачи'));
+    if(!urgent.length)utCard.appendChild(dv({color:C.txS,fontSize:'.875rem'},'Нет срочных задач'));
+    else urgent.slice(0,4).forEach(t=>{const r=dv({display:'flex',gap:'.75rem',alignItems:'center',padding:'.5rem 0',borderBottom:`1px solid ${C.brd}`});r.appendChild(dv({width:'8px',height:'8px',borderRadius:'50%',background:daysUntil(t.deadline)<0?C.rd:C.yw,flexShrink:'0'}));const inf=dv({flex:'1',minWidth:'0'});inf.appendChild(dv({fontSize:'.84rem',fontWeight:'700',color:C.tx,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},t.title));inf.appendChild(dv({fontSize:'.75rem',color:C.txS},t.cName+' · '+fmt(t.deadline)));r.appendChild(inf);utCard.appendChild(r);});
+    bot.appendChild(utCard);
+    wrap.appendChild(bot);
+    const grid=dv({});grid.className='grid-auto';
+    courses.forEach(c=>grid.appendChild(cCard(c)));if(!courses.length)grid.appendChild(empty('Нет курсов'));wrap.appendChild(grid);
+  }
+  return wrap;
 }
 
 // ═══════════════════════════════════════════════
@@ -1620,18 +1710,67 @@ function pgSearch(){
 // TEACHER PAGES
 // ═══════════════════════════════════════════════
 function pgTHome(){
-  const{prof,courses}=S;const my=courses.filter(c=>c.course_teachers?.some(ct=>ct.teacher_id===prof.id));
-  const wrap=dv({maxWidth:'960px'});wrap.className='fade page';wrap.appendChild(hx(1,{margin:'0 0 .2rem',fontSize:'1.5rem',fontWeight:'800',color:C.tx},'Мои курсы 👋'));wrap.appendChild(dv({margin:'0 0 2rem',color:C.txS,fontSize:'.875rem'},`Добрый день, ${(prof.full_name||'').split(' ')[0]}`));
-  if(!my.length){wrap.appendChild(empty('Вы не задействованы в активных курсах'));return wrap;}
-  my.forEach(course=>{
-    const ct=course.course_teachers?.find(t=>t.teacher_id===prof.id);const myL=(course.lectures||[]).filter(l=>l.teacher_id===prof.id).sort((a,b)=>new Date(a.date)-new Date(b.date));const done=myL.filter(l=>daysUntil(l.date)<0);const rem=myL.filter(l=>daysUntil(l.date)>=0);const nextL=rem[0];const mgrs=(course.course_managers||[]).map(r=>r.profiles).filter(Boolean);const cc=course.color||C.ac;
-    const c2=dv({background:C.surf,border:`1px solid ${C.brd}`,borderRadius:'14px',marginBottom:'1.25rem',boxShadow:C.sh,overflow:'hidden'});c2.appendChild(dv({height:'5px',background:`linear-gradient(90deg,${cc},${cc}66)`}));
-    const body=dv({padding:'1.25rem 1.5rem'});const tr3=dv({display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'.875rem',flexWrap:'wrap',gap:'.5rem'});const tl=dv({});tl.appendChild(dv({margin:'0 0 .25rem',fontSize:'1rem',fontWeight:'700',color:C.tx},course.title));tl.appendChild(dv({fontSize:'.8rem',color:C.txS},`${ct?.subject||''} · ${fmtS(course.start_date)} — ${fmtS(course.end_date)}`));tr3.appendChild(tl);tr3.appendChild(badge(course.type==='retraining'?'Переподготовка':'Пов. квалификации',course.type==='retraining'?'purple':'blue'));body.appendChild(tr3);
-    const st=document.createElement('div');st.className='grid-4';st.style.marginBottom='1rem';[['Всего пар',myL.length,C.tx],['Проведено',done.length,C.gr],['Осталось',rem.length,rem.length>0?C.bl:C.txT],['Часов',ct?.hours||0,cc]].forEach(([l,v,col])=>{const s=dv({padding:'.75rem',background:C.bg,borderRadius:'10px',border:`1px solid ${C.brd}`,textAlign:'center'});s.appendChild(dv({fontSize:'1.5rem',fontWeight:'800',color:col,lineHeight:'1'},String(v)));s.appendChild(dv({fontSize:'.68rem',color:C.txS,fontWeight:'600',marginTop:'4px'},l));st.appendChild(s);});body.appendChild(st);
-    const pw=dv({marginBottom:'1rem'});const pt=dv({display:'flex',justifyContent:'space-between',marginBottom:'5px'});pt.appendChild(sp({fontSize:'.75rem',color:C.txS,fontWeight:'600'},'Прогресс'));pt.appendChild(sp({fontSize:'.75rem',fontWeight:'700',color:cc},`${myL.length>0?Math.round((done.length/myL.length)*100):0}%`));pw.appendChild(pt);pw.appendChild(prog(done.length,myL.length||1,cc,7));body.appendChild(pw);
-    if(nextL){const nb=dv({padding:'.75rem 1rem',background:cc+'10',border:`1px solid ${cc}30`,borderRadius:'9px',marginBottom:'.875rem'});nb.appendChild(dv({fontSize:'.7rem',fontWeight:'700',color:cc,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'3px'},'Следующая пара'));nb.appendChild(dv({fontWeight:'600',color:C.tx,fontSize:'.875rem'},nextL.topic));nb.appendChild(dv({fontSize:'.78rem',color:C.txS,marginTop:'3px'},`${fmt(nextL.date)} в ${nextL.time||''} · ${nextL.duration_hours||2} ч.`));if(nextL.link){const a=document.createElement('a');a.href=nextL.link;a.target='_blank';Object.assign(a.style,{display:'inline-flex',alignItems:'center',gap:'4px',marginTop:'6px',fontSize:'.78rem',color:C.bl,fontWeight:'600'});a.appendChild(ic('link',12,C.bl));a.appendChild(tx('Открыть ссылку'));nb.appendChild(a);}body.appendChild(nb);}
-    const mr=dv({display:'flex',alignItems:'center',gap:'.75rem',flexWrap:'wrap'});mr.appendChild(sp({fontSize:'.75rem',color:C.txT,fontWeight:'600'},'Менеджеры:'));mgrs.forEach(m=>{const pill=dv({display:'flex',alignItems:'center',gap:'5px',padding:'3px 10px 3px 6px',background:C.acL,border:`1px solid ${C.acB}`,borderRadius:'999px'});pill.appendChild(av(m.avatar_text,C.ac,22));pill.appendChild(sp({fontSize:'.75rem',fontWeight:'600',color:C.ac},(m.full_name||'').split(' ').slice(0,2).join(' ')));mr.appendChild(pill);});mr.appendChild(ct?.paid?badge('Оплата получена','green',true):badge('Ожидание оплаты','yellow',true));body.appendChild(mr);c2.appendChild(body);wrap.appendChild(c2);
-  });return wrap;
+  const{prof,courses}=S;
+  const my=courses.filter(c=>c.course_teachers?.some(ct=>ct.teacher_id===prof.id));
+  const wrap=dv({maxWidth:'960px'});wrap.className='fade page-wide';
+
+  if(isMob()){
+    wrap.style.padding='0';
+    wrap.appendChild(mobGreeting(prof.full_name||'',new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})));
+    const content=dv({});content.className='mob-page-content';
+
+    if(!my.length){
+      content.appendChild(mobHeroCard('Нет активных курсов','Менеджер добавит вас в курс',`linear-gradient(135deg,${C.txT},${C.txS})`));
+    } else {
+      // Hero — next lecture
+      const allLectures=my.flatMap(c=>(c.lectures||[]).filter(l=>l.teacher_id===prof.id&&daysUntil(l.date)>=0).map(l=>({...l,cName:c.title,cId:c.id,cCol:c.color}))).sort((a,b)=>new Date(a.date)-new Date(b.date));
+      if(allLectures.length){
+        const next=allLectures[0];
+        content.appendChild(mobHeroCard('Следующая лекция',next.topic+' · '+fmt(next.date)+(next.time?' в '+next.time:''),`linear-gradient(135deg,${C.bl},#5a8fe8)`,()=>setS({nav:'t-sched'})));
+      }
+      // Quick actions
+      const unread=S.msgs.filter(m=>m.receiver_id===prof.id&&!m.read).length;
+      const actRow=document.createElement('div');actRow.className='mob-action-row';
+      actRow.appendChild(mobActionBtn('cal',C.bl,'#EEF3FF','Расписание',`${allLectures.length} лекций`,()=>setS({nav:'t-sched'})));
+      actRow.appendChild(mobActionBtn('doc',C.ac,'#FDF3E7','Задания','Проверить',()=>setS({nav:'t-hw'})));
+      actRow.appendChild(mobActionBtn('tasks',C.gr,'#EDFAF3','Задачи','Мои задачи',()=>setS({nav:'t-tasks'})));
+      actRow.appendChild(mobActionBtn('msg',unread>0?C.rd:C.bl,unread>0?'#FDF0EE':'#EEF3FF','Сообщения',unread>0?`${unread} новых`:'Нет новых',()=>setS({nav:'msgs'})));
+      content.appendChild(actRow);
+      // My courses list
+      content.appendChild(mobTitle('Мои курсы'));
+      my.forEach(c=>{
+        const ct=c.course_teachers?.find(t=>t.teacher_id===prof.id);
+        const arr=document.createElement('div');arr.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9E9890" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+        content.appendChild(mobListItem('courses',c.color||C.ac,(c.color||C.ac)+'22',c.title,ct?.subject||`${(c.students||[]).length} слушателей`,arr,()=>setS({nav:'course',cid:c.id})));
+      });
+    }
+    wrap.appendChild(content);
+  } else {
+    // Desktop
+    wrap.appendChild(hx(1,{margin:'0 0 .2rem',fontSize:'1.5rem',fontWeight:'800',color:C.tx},'Мои курсы 👋'));
+    wrap.appendChild(dv({margin:'0 0 2rem',color:C.txS,fontSize:'.875rem'},`Добрый день, ${(prof.full_name||'').split(' ')[0]}`));
+    if(!my.length){wrap.appendChild(empty('Вы не задействованы в активных курсах'));return wrap;}
+    my.forEach(course=>{
+      const ct=course.course_teachers?.find(t=>t.teacher_id===prof.id);
+      const c2=card(null);c2.style.marginBottom='1rem';c2.style.cursor='pointer';
+      c2.onclick=()=>setS({nav:'course',cid:course.id});
+      const body=dv({padding:'1.25rem'});
+      const hrow=dv({display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'1rem',flexWrap:'wrap'});
+      const hl=dv({flex:'1'});
+      const tr2=dv({display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'.25rem',flexWrap:'wrap'});
+      tr2.appendChild(dv({width:'10px',height:'10px',borderRadius:'50%',background:course.color||C.ac,flexShrink:'0'}));
+      tr2.appendChild(sp({fontWeight:'800',fontSize:'1rem',color:C.tx},course.title));
+      tr2.appendChild(badge(course.type==='retraining'?'Профпереподготовка':'Повышение квалификации',course.type==='retraining'?'purple':'blue',true));
+      hl.appendChild(tr2);
+      hl.appendChild(dv({fontSize:'.82rem',color:C.txS},`${fmt(course.start_date)} — ${fmt(course.end_date)} · ${(course.students||[]).length} слушателей`));
+      hrow.appendChild(hl);
+      const mr=dv({display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center'});
+      if(ct?.subject){const pill=dv({padding:'4px 10px',background:C.blL,borderRadius:'999px',fontSize:'.76rem',fontWeight:'700',color:C.bl});pill.textContent=ct.subject;mr.appendChild(pill);}
+      mr.appendChild(ct?.paid?badge('Оплата получена','green',true):badge('Ожидание оплаты','yellow',true));
+      hrow.appendChild(mr);body.appendChild(hrow);c2.appendChild(body);wrap.appendChild(c2);
+    });
+  }
+  return wrap;
 }
 
 function pgTSched(){
@@ -1661,25 +1800,112 @@ function pgTSched(){
 // STUDENT PAGES
 // ═══════════════════════════════════════════════
 function pgSHome(){
-  const{prof,courses}=S;const wrap=dv({maxWidth:'960px'});wrap.className='fade page';
-  wrap.appendChild(hx(1,{margin:'0 0 .2rem',fontSize:'1.5rem',fontWeight:'800',color:C.tx},'Мой курс 🎓'));wrap.appendChild(dv({margin:'0 0 2rem',color:C.txS,fontSize:'.875rem'},`Добрый день, ${(prof.full_name||'').split(' ')[0]}`));
-  if(!courses.length){
-    wrap.appendChild(card([dv({textAlign:'center',padding:'2rem'},ic('grad',48,C.txT),dv({marginTop:'1rem',fontWeight:'700',color:C.tx,fontSize:'1rem'},'Курс не найден'),dv({marginTop:'.5rem',color:C.txS,fontSize:'.875rem'},`Менеджер должен добавить ваш email (${prof.email}) в список слушателей курса.`))]));return wrap;
+  const{prof,courses}=S;
+  const wrap=dv({maxWidth:'960px'});wrap.className='fade page-wide';
+
+  if(isMob()){
+    wrap.style.padding='0';
+    wrap.appendChild(mobGreeting(prof.full_name||'',''));
+    const content=dv({});content.className='mob-page-content';
+
+    if(!courses.length){
+      content.appendChild(mobHeroCard('Курс не найден','Менеджер должен добавить ваш email в список слушателей',`linear-gradient(135deg,${C.txT},${C.txS})`));
+      const infoBox=dv({background:'#EEF3FF',borderRadius:'16px',padding:'1rem 1.125rem',marginTop:'.75rem'});
+      infoBox.appendChild(dv({fontWeight:'700',fontSize:'.875rem',color:C.bl,marginBottom:'.375rem'},'Ваш email для регистрации:'));
+      infoBox.appendChild(dv({fontWeight:'800',fontSize:'1rem',color:C.tx},prof.email||''));
+      content.appendChild(infoBox);
+      wrap.appendChild(content);return wrap;
+    }
+
+    const course=courses[0];
+    const pct2=Math.round(pct(course)*100);
+    const lectures=(course.lectures||[]).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const nextLec=lectures.find(l=>daysUntil(l.date)>=0);
+    const doneLec=lectures.filter(l=>daysUntil(l.date)<0).length;
+
+    // Hero — continue / next lecture
+    if(nextLec){
+      content.appendChild(mobHeroCard(
+        'Следующая лекция',
+        nextLec.topic+' · '+fmt(nextLec.date)+(nextLec.time?' в '+nextLec.time:''),
+        `linear-gradient(135deg,${course.color||C.ac},${course.color||C.ac}bb)`,
+        ()=>setS({nav:'s-sched'})
+      ));
+    } else {
+      content.appendChild(mobHeroCard('Курс завершён','Все лекции пройдены',`linear-gradient(135deg,${C.gr},#45b87a)`));
+    }
+
+    // Progress card
+    const progCard=dv({background:'#fff',borderRadius:'20px',padding:'1.125rem',marginBottom:'.875rem',boxShadow:'0 1px 4px rgba(26,23,20,.08),0 0 0 1px rgba(26,23,20,.05)'});
+    progCard.appendChild(dv({fontWeight:'800',fontSize:'1rem',color:'#1A1714',marginBottom:'.75rem'},course.title));
+    const pBar=dv({background:'#F2EFE9',borderRadius:'999px',height:'8px',marginBottom:'.5rem'});
+    const pFill=dv({height:'100%',borderRadius:'999px',background:`linear-gradient(90deg,${course.color||C.ac},${course.color||C.ac}99)`,width:pct2+'%',transition:'width .5s ease'});
+    pBar.appendChild(pFill);progCard.appendChild(pBar);
+    
+    const pRow=dv({display:'flex',justifyContent:'space-between',fontSize:'.78rem',color:'#9E9890'});
+    pRow.appendChild(sp({},'Пройдено: '+doneLec+'/'+lectures.length+' лекций'));
+    pRow.appendChild(sp({fontWeight:'700',color:course.color||C.ac},pct2+'%'));
+    progCard.appendChild(pRow);
+    content.appendChild(progCard);
+
+    // Quick actions
+    const unread=S.msgs.filter(m=>m.receiver_id===prof.id&&!m.read).length;
+    const actRow=document.createElement('div');actRow.className='mob-action-row';
+    actRow.appendChild(mobActionBtn('cal',C.bl,'#EEF3FF','Расписание',lectures.length+' лекций',()=>setS({nav:'s-sched'})));
+    actRow.appendChild(mobActionBtn('doc',C.ac,'#FDF3E7','Задания','Мои задания',()=>setS({nav:'s-hw'})));
+    actRow.appendChild(mobActionBtn('video',C.pu,'#F3EEFF','Материалы','Записи лекций',()=>setS({nav:'s-mats'})));
+    actRow.appendChild(mobActionBtn('msg',unread>0?C.rd:C.bl,unread>0?'#FDF0EE':'#EEF3FF','Сообщения',unread>0?`${unread} новых`:'Написать',()=>setS({nav:'msgs'})));
+    content.appendChild(actRow);
+
+    // Upcoming lectures list
+    const upcoming=lectures.filter(l=>daysUntil(l.date)>=0).slice(0,3);
+    if(upcoming.length){
+      content.appendChild(mobTitle('Расписание'));
+      upcoming.forEach(l=>{
+        const d=daysUntil(l.date);
+        const timeEl=sp({fontSize:'.76rem',fontWeight:'700',color:d===0?C.rd:C.ac},d===0?'Сегодня':d===1?'Завтра':fmt(l.date));
+        content.appendChild(mobListItem('cal',C.bl,'#EEF3FF',l.topic,(l.time?'в '+l.time+' · ':'')+((l.profiles?.full_name)||''),timeEl,()=>setS({nav:'s-sched'})));
+      });
+    }
+    wrap.appendChild(content);
+  } else {
+    // ── DESKTOP LAYOUT (original) ──
+    wrap.appendChild(hx(1,{margin:'0 0 .2rem',fontSize:'1.5rem',fontWeight:'800',color:C.tx},'Мой курс 🎓'));
+    wrap.appendChild(dv({margin:'0 0 2rem',color:C.txS,fontSize:'.875rem'},`Добрый день, ${(prof.full_name||'').split(' ')[0]}`));
+    if(!courses.length){
+      wrap.appendChild(card([dv({textAlign:'center',padding:'2rem'},ic('grad',48,C.txT),dv({marginTop:'1rem',fontWeight:'700',color:C.tx,fontSize:'1rem'},'Курс не найден'),dv({marginTop:'.5rem',color:C.txS,fontSize:'.875rem'},`Менеджер должен добавить ваш email в список слушателей`),dv({marginTop:'.75rem',background:C.blL,border:`1px solid ${C.blB}`,borderRadius:'10px',padding:'.75rem',fontSize:'.82rem',color:C.bl},'Ваш email: '+prof.email))]));
+      return wrap;
+    }
+    const course=courses[0];
+    const pct2=Math.round(pct(course)*100);
+    const lectures=(course.lectures||[]).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const nextLec=lectures.find(l=>daysUntil(l.date)>=0);
+    const hcard=card(null);hcard.style.marginBottom='1.5rem';hcard.style.overflow='hidden';
+    hcard.appendChild(dv({height:'5px',background:`linear-gradient(90deg,${course.color||C.ac},${course.color||C.ac}66)`}));
+    const hb=dv({padding:'1.25rem 1.5rem'});
+    const tr2=dv({display:'flex',alignItems:'center',gap:'.75rem',marginBottom:'.5rem',flexWrap:'wrap'});
+    tr2.appendChild(hx(2,{margin:'0',fontSize:'1.2rem',fontWeight:'800',color:C.tx},course.title));
+    tr2.appendChild(badge(course.type==='retraining'?'Профпереподготовка':'Повышение квалификации',course.type==='retraining'?'purple':'blue'));
+    hb.appendChild(tr2);hb.appendChild(dv({fontSize:'.82rem',color:C.txS,marginBottom:'1rem'},`${fmt(course.start_date)} — ${fmt(course.end_date)} · ${(course.students||[]).length} слушателей`));
+    const pb=dv({background:C.bg,borderRadius:'999px',height:'8px',marginBottom:'.375rem'});
+    pb.appendChild(dv({height:'100%',borderRadius:'999px',background:`linear-gradient(90deg,${course.color||C.ac},${course.color||C.ac}88)`,width:pct2+'%'}));
+    hb.appendChild(pb);hb.appendChild(dv({fontSize:'.76rem',color:C.txS},`Прогресс: ${pct2}%`));hcard.appendChild(hb);wrap.appendChild(hcard);
+    if(nextLec){
+      const nl=card(null);nl.style.marginBottom='1.5rem';nl.style.padding='1.25rem';
+      nl.appendChild(dv({fontWeight:'800',color:C.tx,marginBottom:'.5rem'},'Следующая лекция'));
+      nl.appendChild(dv({fontSize:'.9rem',color:C.tx,fontWeight:'700',marginBottom:'.25rem'},nextLec.topic));
+      nl.appendChild(dv({fontSize:'.82rem',color:C.txS},fmt(nextLec.date)+(nextLec.time?' в '+nextLec.time:'')));
+      if(nextLec.link)nl.appendChild(btn('Открыть ссылку',()=>window.open(nextLec.link,'_blank'),{variant:'primary',size:'sm',icon:'link',style:{marginTop:'.75rem'}}));
+      wrap.appendChild(nl);
+    }
+    const grid=document.createElement('div');grid.className='grid-2';grid.style.marginBottom='1.5rem';
+    const schCard=card(null);schCard.style.padding='1.25rem';schCard.appendChild(dv({fontWeight:'800',color:C.tx,marginBottom:'1rem'},'Расписание'));
+    lectures.filter(l=>daysUntil(l.date)>=0).slice(0,4).forEach(l=>{const r=dv({display:'flex',gap:'.75rem',padding:'.5rem 0',borderBottom:`1px solid ${C.brd}`,alignItems:'center'});r.appendChild(dv({width:'8px',height:'8px',borderRadius:'50%',background:daysUntil(l.date)<=1?C.rd:course.color||C.ac,flexShrink:'0'}));const inf=dv({flex:'1',minWidth:'0'});inf.appendChild(dv({fontSize:'.84rem',fontWeight:'700',color:C.tx,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},l.topic));inf.appendChild(dv({fontSize:'.75rem',color:C.txS},fmt(l.date)+(l.time?' · '+l.time:'')));r.appendChild(inf);schCard.appendChild(r);});
+    if(!lectures.filter(l=>daysUntil(l.date)>=0).length)schCard.appendChild(dv({color:C.txS,fontSize:'.875rem'},'Нет предстоящих лекций'));
+    grid.appendChild(schCard);
+    const tRow=dv({display:'flex',gap:'.75rem',flexWrap:'wrap'});
+    (course.course_teachers||[]).forEach(ct=>{const t=ct.profiles;if(!t)return;const tc=dv({display:'flex',alignItems:'center',gap:'.625rem',padding:'.625rem',background:C.bg,borderRadius:'10px',flex:'1',minWidth:'160px'});tc.appendChild(av(ini(t.full_name||'?'),C.bl,36));const inf=dv({flex:'1',minWidth:'0'});inf.appendChild(sp({fontWeight:'700',fontSize:'.875rem',color:C.tx,display:'block',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},t.full_name||'—'));inf.appendChild(sp({fontSize:'.75rem',color:C.txS,display:'block',marginTop:'2px'},ct.subject||''));if(t?.email)inf.appendChild(dv({fontSize:'.75rem',color:C.txT,marginTop:'2px'},t.email));tc.appendChild(inf);tRow.appendChild(tc);});wrap.appendChild(grid);wrap.appendChild(tRow);
   }
-  const course=courses[0];const cc=course.color||C.ac;const p=pct(course);const lectures=course.lectures||[];const upcoming=lectures.filter(l=>daysUntil(l.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date));const past=lectures.filter(l=>daysUntil(l.date)<0);const myData=(course.students||[]).find(s=>s.email===prof.email);
-  // Course header
-  const hcard=dv({background:C.surf,border:`1px solid ${C.brd}`,borderRadius:'14px',marginBottom:'1.5rem',boxShadow:C.sh,overflow:'hidden'});hcard.appendChild(dv({height:'6px',background:`linear-gradient(90deg,${cc},${cc}66)`}));
-  const hb=dv({padding:'1.25rem 1.5rem'});hb.appendChild(hx(2,{margin:'0 0 .3rem',fontSize:'1.15rem',fontWeight:'800',color:C.tx},course.title));hb.appendChild(dv({fontSize:'.82rem',color:C.txS,marginBottom:'.875rem'},`${fmt(course.start_date)} — ${fmt(course.end_date)} · ${course.hours||0} ч. · ${course.type==='retraining'?'Профпереподготовка':'Повышение квалификации'}`));
-  const pr=dv({display:'flex',alignItems:'center',gap:'.75rem',marginBottom:'1rem'});pr.appendChild(sp({fontSize:'.75rem',color:C.txS,fontWeight:'600',minWidth:'70px'},'Прогресс'));pr.appendChild(dv({flex:'1'},prog(p,100,cc,8)));pr.appendChild(sp({fontSize:'.78rem',fontWeight:'800',color:cc},`${p}%`));hb.appendChild(pr);
-  const sRow=document.createElement('div');sRow.className='grid-4';[['Лекций',lectures.length,C.tx],['Прошло',past.length,C.gr],['Осталось',upcoming.length,C.bl],['Часов',course.hours||0,cc]].forEach(([l,v,col])=>{const s=dv({padding:'.75rem',background:C.bg,borderRadius:'10px',border:`1px solid ${C.brd}`,textAlign:'center'});s.appendChild(dv({fontSize:'1.5rem',fontWeight:'800',color:col,lineHeight:'1'},String(v)));s.appendChild(dv({fontSize:'.68rem',color:C.txS,fontWeight:'600',marginTop:'4px'},l));sRow.appendChild(s);});hb.appendChild(sRow);hcard.appendChild(hb);wrap.appendChild(hcard);
-  // Docs status banner
-  if(myData){const DOCS=[['has_passport','Паспорт'],['has_diploma','Диплом'],['has_statement','Заявление'],['has_contract','Договор'],['has_payment','Оплата']];const missing=DOCS.filter(([k])=>!myData[k]);if(missing.length>0){const banner=dv({padding:'.75rem 1rem',background:C.ywL,border:`1px solid ${C.ywB}`,borderRadius:'10px',marginBottom:'1.25rem',display:'flex',alignItems:'center',gap:'.75rem'});banner.appendChild(ic('alert',16,C.yw));const txt=dv({flex:'1'});txt.appendChild(dv({fontSize:'.82rem',fontWeight:'700',color:C.yw},'Не хватает документов'));txt.appendChild(dv({fontSize:'.78rem',color:C.txS},`Предоставьте: ${missing.map(([,l])=>l).join(', ')}`));banner.appendChild(txt);banner.appendChild(btn('Подробнее',()=>setS({nav:'s-docs'}),{variant:'secondary',size:'sm'}));wrap.appendChild(banner);}else{const ok=dv({padding:'.75rem 1rem',background:C.grL,border:`1px solid ${C.grB}`,borderRadius:'10px',marginBottom:'1.25rem',display:'flex',alignItems:'center',gap:'.75rem'});ok.appendChild(ic('check',16,C.gr));ok.appendChild(dv({fontSize:'.82rem',fontWeight:'700',color:C.gr},'Все документы предоставлены ✓'));wrap.appendChild(ok);}}
-  // Next lecture
-  if(upcoming.length){const nl=upcoming[0];const daysLeft=daysUntil(nl.date);const nlCard=dv({background:`linear-gradient(135deg,${cc}18,${cc}08)`,border:`1px solid ${cc}30`,borderRadius:'14px',padding:'1.25rem 1.5rem',marginBottom:'1.5rem',display:'flex',gap:'1.25rem',alignItems:'center'});const dateBox=dv({textAlign:'center',minWidth:'64px',background:C.surf,borderRadius:'10px',padding:'8px',border:`1px solid ${cc}40`,boxShadow:`0 2px 8px ${cc}20`});dateBox.appendChild(dv({fontSize:'1.6rem',fontWeight:'800',color:cc,lineHeight:'1'},String(new Date(nl.date).getDate())));dateBox.appendChild(dv({fontSize:'.72rem',color:C.txS,textTransform:'capitalize'},new Date(nl.date).toLocaleDateString('ru-RU',{month:'long'})));dateBox.appendChild(dv({fontSize:'.8rem',color:C.tx,fontWeight:'700',marginTop:'4px'},nl.time||'—'));nlCard.appendChild(dateBox);
-    const inf=dv({flex:'1'});inf.appendChild(dv({fontSize:'.7rem',fontWeight:'700',color:cc,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'4px'},'Следующая лекция'));inf.appendChild(dv({fontWeight:'700',color:C.tx,fontSize:'1rem',marginBottom:'4px'},nl.topic));inf.appendChild(dv({fontSize:'.8rem',color:C.txS},`${nl.profiles?.full_name||'—'} · ${nl.duration_hours||2} ч.`));if(nl.link){const a=document.createElement('a');a.href=nl.link;a.target='_blank';Object.assign(a.style,{display:'inline-flex',alignItems:'center',gap:'5px',marginTop:'8px',padding:'5px 14px',background:C.bl,borderRadius:'7px',color:'#fff',fontWeight:'600',fontSize:'.82rem'});a.appendChild(ic('link',13,'#fff'));a.appendChild(tx('Открыть ссылку'));inf.appendChild(dv({marginTop:'4px'},a));}nlCard.appendChild(inf);
-    const dl=dv({textAlign:'center',padding:'.5rem 1rem',background:C.surf,borderRadius:'10px',border:`1px solid ${C.brd}`,minWidth:'60px'});dl.appendChild(dv({fontSize:'1.4rem',fontWeight:'800',color:daysLeft===0?C.rd:daysLeft===1?C.yw:cc,lineHeight:'1'},daysLeft===0?'Сег.':String(daysLeft)));dl.appendChild(dv({fontSize:'.65rem',color:C.txT},daysLeft===0?'Сегодня':daysLeft===1?'Завтра':'дней'));nlCard.appendChild(dl);wrap.appendChild(nlCard);}
-  // Teachers
-  if((course.course_teachers||[]).length){wrap.appendChild(hx(2,{fontSize:'.875rem',fontWeight:'700',color:C.txS,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'.75rem'},'Преподаватели'));const tRow=dv({display:'flex',gap:'.75rem',flexWrap:'wrap',marginBottom:'1.5rem'});course.course_teachers.forEach(ct=>{const t=ct.profiles;const tc=dv({display:'flex',alignItems:'center',gap:'.75rem',padding:'.875rem 1.25rem',background:C.surf,border:`1px solid ${C.brd}`,borderRadius:'12px',boxShadow:C.sh,flex:'1',minWidth:'220px'});tc.appendChild(av(t?.avatar_text,C.bl,44));const inf=dv({});inf.appendChild(dv({fontWeight:'700',color:C.tx,fontSize:'.875rem'},t?.full_name||'—'));inf.appendChild(dv({fontSize:'.78rem',color:C.txS,marginTop:'2px'},ct.subject||''));if(t?.email)inf.appendChild(dv({fontSize:'.75rem',color:C.txT,marginTop:'2px'},t.email));tc.appendChild(inf);tRow.appendChild(tc);});wrap.appendChild(tRow);}
   return wrap;
 }
 
@@ -2439,6 +2665,63 @@ function modalProfile(){
   document.body.appendChild(m);
 }
 
+
+// ─── MOBILE UI HELPERS ─────────────────────────────────────────
+const isMob=()=>window.innerWidth<=768;
+
+// Mobile greeting header
+function mobGreeting(name,subtitle){
+  const w=dv({});w.className='mob-greeting';
+  w.appendChild(Object.assign(document.createElement('div'),{className:'mob-greeting-name',textContent:'Добрый день, '+name.split(' ')[0]+'!'}));
+  if(subtitle)w.appendChild(Object.assign(document.createElement('div'),{className:'mob-greeting-date',textContent:subtitle}));
+  return w;
+}
+
+// Large hero action card (like "Продолжить обучение" in Teachbase)
+function mobHeroCard(title,sub,gradient,onClick){
+  const c=document.createElement('div');c.className='mob-hero-card';
+  c.style.background=gradient||`linear-gradient(135deg,${C.ac},#e8955a)`;
+  const txt=dv({paddingRight:'3rem'});
+  txt.appendChild(Object.assign(document.createElement('div'),{className:'mob-hero-title',textContent:title}));
+  if(sub)txt.appendChild(Object.assign(document.createElement('div'),{className:'mob-hero-sub',textContent:sub}));
+  c.appendChild(txt);
+  const arr=document.createElement('div');arr.className='mob-hero-arrow';
+  arr.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  c.appendChild(arr);
+  if(onClick)c.onclick=onClick;
+  return c;
+}
+
+// 2-column action button grid item
+function mobActionBtn(icon,iconColor,iconBg,label,sub,onClick){
+  const b=document.createElement('button');b.className='mob-action-btn';
+  const ico=document.createElement('div');ico.className='mob-action-icon';ico.style.background=iconBg;
+  ico.appendChild(ic(icon,20,iconColor));
+  b.appendChild(ico);
+  b.appendChild(Object.assign(document.createElement('div'),{className:'mob-action-label',textContent:label}));
+  if(sub)b.appendChild(Object.assign(document.createElement('div'),{className:'mob-action-sub',textContent:sub}));
+  if(onClick)b.onclick=onClick;
+  return b;
+}
+
+// List item row (like course/lecture/task row on mobile)
+function mobListItem(iconName,iconColor,iconBg,title,sub,rightEl,onClick){
+  const row=document.createElement('div');row.className='mob-list-item';
+  const ico=document.createElement('div');ico.className='mob-list-icon';ico.style.background=iconBg;
+  ico.appendChild(ic(iconName,22,iconColor));row.appendChild(ico);
+  const body=document.createElement('div');body.className='mob-list-body';
+  body.appendChild(Object.assign(document.createElement('div'),{className:'mob-list-title',textContent:title}));
+  if(sub)body.appendChild(Object.assign(document.createElement('div'),{className:'mob-list-sub',textContent:sub}));
+  row.appendChild(body);
+  if(rightEl){const r=document.createElement('div');r.className='mob-list-right';r.appendChild(rightEl);row.appendChild(r);}
+  if(onClick)row.onclick=onClick;
+  return row;
+}
+
+// Section title
+function mobTitle(text){
+  return Object.assign(document.createElement('div'),{className:'mob-section-title',textContent:text});
+}
 
 async function render(){
   const app=document.getElementById('app');if(!app)return;app.innerHTML='';
