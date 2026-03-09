@@ -58,7 +58,7 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 .sb-overlay.on{opacity:1;pointer-events:auto}
 
 /* ── iOS TOP BAR ──────────────────────────────────── */
-.mob-bar{display:none;position:sticky;top:0;z-index:150;background:rgba(247,245,242,.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-bottom:1px solid rgba(232,227,218,.7);padding:.5rem .875rem;align-items:center;gap:.625rem;min-height:52px}
+.mob-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:250;background:rgba(247,245,242,.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-bottom:1px solid rgba(232,227,218,.7);padding:.5rem .875rem;align-items:center;gap:.625rem;min-height:52px}
 .mob-bar-title{flex:1;font-weight:800;font-size:1rem;color:#1A1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── iOS BOTTOM TAB BAR ───────────────────────────── */
@@ -111,12 +111,12 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 
 /* ── MOBILE HOME COMPONENTS (Teachbase-style) ────── */
 .mob-section-title{font-size:1.3rem;font-weight:800;color:#1A1714;letter-spacing:-.02em;margin-bottom:1rem}
-.mob-hero-card{border-radius:20px;padding:1.25rem 1.375rem;margin-bottom:.875rem;position:relative;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,opacity .12s}
+.mob-hero-card{border-radius:20px;padding:1.25rem 1.375rem;margin-bottom:.875rem;position:relative;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,opacity .12s;width:100%;box-sizing:border-box}
 .mob-hero-card:active{transform:scale(.98);opacity:.92}
 .mob-hero-title{font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:.375rem;line-height:1.2}
 .mob-hero-sub{font-size:.82rem;color:rgba(255,255,255,.8);line-height:1.4}
 .mob-hero-arrow{position:absolute;right:1.25rem;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center}
-.mob-action-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.875rem}
+.mob-action-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.875rem;width:100%}
 .mob-action-btn{background:#fff;border-radius:18px;padding:1.125rem 1rem;display:flex;flex-direction:column;gap:.5rem;box-shadow:0 1px 4px rgba(26,23,20,.08),0 0 0 1px rgba(26,23,20,.05);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .12s;border:none;text-align:left;width:100%}
 .mob-action-btn:active{transform:scale(.96);box-shadow:0 1px 2px rgba(26,23,20,.06)}
 .mob-action-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -129,19 +129,20 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 .mob-list-title{font-size:.9rem;font-weight:700;color:#1A1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mob-list-sub{font-size:.76rem;color:#9E9890;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mob-list-right{flex-shrink:0;display:flex;align-items:center}
-.mob-greeting{padding:1.5rem .875rem .25rem;margin-bottom:0}
+.mob-greeting{padding:1.5rem .875rem .75rem;margin-bottom:0;width:100%;box-sizing:border-box}
 .mob-greeting-name{font-size:1.6rem;font-weight:800;color:#1A1714;letter-spacing:-.03em;line-height:1.1}
 .mob-greeting-date{font-size:.82rem;color:#9E9890;margin-top:.375rem;font-weight:500}
-.mob-page-content{padding:0 .875rem 96px}
+.mob-page-content{padding:0 .875rem 96px;width:100%;box-sizing:border-box}
 [data-theme="dark"] .mob-action-btn{background:#232018;box-shadow:0 1px 4px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.06)}
 [data-theme="dark"] .mob-list-item{background:#232018;box-shadow:0 1px 3px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.05)}
 [data-theme="dark"] .mob-section-title{color:#F0EDE8}
 [data-theme="dark"] .mob-action-label{color:#F0EDE8}
 [data-theme="dark"] .mob-greeting-name{color:#F0EDE8}
 @media(max-width:768px){
+  .app-layout{display:block}
   .app-sidebar{position:fixed;left:0;top:0;bottom:0;z-index:300;transform:translateX(-260%);width:260px}
-  .app-sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vw transparent,4px 0 32px rgba(26,23,20,.2)}
-  .app-main{max-height:calc(100dvh - 52px);overflow-x:hidden}
+  .app-sidebar.open{transform:translateX(0);box-shadow:4px 0 32px rgba(26,23,20,.2)}
+  .app-main{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;padding-top:52px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
   .sb-overlay{display:block}
   .mob-bar{display:flex}
   .mob-nav{display:flex}
@@ -2733,7 +2734,20 @@ async function render(){
   const sOverlay=document.createElement('div');sOverlay.className='sb-overlay';
   sOverlay.onclick=()=>{document.querySelector('.app-sidebar')?.classList.remove('open');sOverlay.classList.remove('on');};
   document.body.appendChild(sOverlay);
-  layout.appendChild(pgSidebar(sOverlay));
+  const sbResult=pgSidebar(sOverlay);
+  // pgSidebar returns a fragment with [mob-bar, aside] - separate them
+  if(sbResult instanceof DocumentFragment){
+    const children=Array.from(sbResult.childNodes);
+    children.forEach(child=>{
+      if(child.classList&&child.classList.contains('mob-bar')){
+        document.body.insertBefore(child,document.body.firstChild);
+      } else {
+        layout.appendChild(child);
+      }
+    });
+  } else {
+    layout.appendChild(sbResult);
+  }
   const main=document.createElement('main');main.className='app-main';main.style.background=C.bg;
   const isM=prof.role==='manager';const isT=prof.role==='teacher';const isSt=prof.role==='student';
   // Course detail — async load if needed
