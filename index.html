@@ -87,10 +87,11 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 .modal-inner{background:#fff;border:1px solid #E8E3DA;border-radius:22px;width:500px;max-width:calc(100vw - 2rem);max-height:88dvh;overflow-y:auto;overflow-x:hidden}
 
 /* ── LOGIN PAGE ───────────────────────────────────── */
-.login-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#F7F5F2;padding:1rem}
-.login-box{background:#fff;border-radius:24px;width:100%;max-width:420px;padding:2rem;box-shadow:0 8px 40px rgba(26,23,20,.1),0 0 0 1px rgba(26,23,20,.06)}
-@media(max-width:480px){
-  .login-box{border-radius:0;min-height:100dvh;padding:2rem 1.25rem;box-shadow:none;display:flex;flex-direction:column;justify-content:center}
+.login-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#F7F5F2;padding:1.5rem}
+.login-box{background:#fff;border-radius:24px;width:420px;max-width:100%;padding:2rem 2.25rem;box-shadow:0 8px 40px rgba(26,23,20,.1),0 0 0 1px rgba(26,23,20,.06);flex-shrink:0}
+@media(max-width:500px){
+  .login-wrap{padding:0;align-items:flex-start}
+  .login-box{border-radius:0;width:100%;min-height:100dvh;padding:2rem 1.25rem;box-shadow:none;display:flex;flex-direction:column;justify-content:center}
 }
 
 /* ── DARK THEME ───────────────────────────────────── */
@@ -187,7 +188,7 @@ async function loadProf(uid){
   for(let i=0;i<10;i++){const{data}=await sb.from('profiles').select('*').eq('id',uid).single();if(data)return data;await sleep(600);}
   return null;
 }
-async async function signUp(email,pw,meta){
+async function signUp(email,pw,meta){
   // Sanitize role — must be one of the allowed values
   const allowedRoles=['manager','teacher','student'];
   const safeRole=allowedRoles.includes(meta.role)?meta.role:'student';
@@ -721,7 +722,7 @@ function pgCourseDetail(){
   wrap.appendChild(tabBar);wrap.appendChild(tabCont);
   // Store showTab so reload can re-call it
   S._showTab=showTab;S._activeTab=()=>activeTab;
-  showTab('teachers');return wrap;
+  showTab(S.activeTab||'teachers');return wrap;
 }
 
 // ─── TAB: TEACHERS ────────────────────────────
