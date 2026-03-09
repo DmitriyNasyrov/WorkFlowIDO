@@ -20,105 +20,121 @@
 html,body{height:100%;font-family:'Plus Jakarta Sans',sans-serif;background:#F7F5F2;color:#1A1714;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
 #app{min-height:100dvh;overflow-x:hidden}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#D4CCC0;border-radius:9px}
-input,select,textarea,button{font-family:inherit;-webkit-appearance:none;outline:none;max-width:100%}
-input:focus,textarea:focus{outline:2px solid #C17A3E44;outline-offset:-1px}
+input,select,textarea,button{font-family:inherit;-webkit-appearance:none;outline:none}
+input:focus,textarea:focus,select:focus{outline:2px solid #C17A3E44;outline-offset:-1px}
 a{color:#3B6FD4;text-decoration:none}
 table{border-collapse:collapse;width:100%;table-layout:fixed}
-td,th{word-break:break-word;overflow-wrap:break-word}
-img{max-width:100%}
+td,th{word-break:break-word;overflow-wrap:anywhere}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .fade{animation:fadeIn .2s ease}
 
-/* ── LAYOUT ─────────────────────────────────────────── */
-.app-layout{display:flex;min-height:100dvh;overflow-x:hidden}
-.app-sidebar{width:220px;flex-shrink:0;position:sticky;top:0;height:100dvh;overflow-y:auto;overflow-x:hidden;transition:transform .26s cubic-bezier(.4,0,.2,1)}
-.app-main{flex:1;overflow-y:auto;overflow-x:hidden;max-height:100dvh;background:#F7F5F2;min-width:0;max-width:calc(100vw - 220px)}
+/* ── LAYOUT ───────────────────────────────────────── */
+.app-layout{display:flex;min-height:100dvh}
+.app-sidebar{width:220px;flex-shrink:0;position:sticky;top:0;height:100dvh;overflow-y:auto;transition:transform .26s cubic-bezier(.4,0,.2,1)}
+.app-main{flex:1;overflow-y:auto;overflow-x:hidden;max-height:100dvh;background:#F7F5F2;min-width:0}
 
-/* ── PAGE CONTAINERS ────────────────────────────────── */
-.page{padding:1.75rem 2rem 2rem;max-width:100%;overflow-x:hidden}
-.page-wide{padding:1.75rem 2rem 2rem;max-width:1280px;overflow-x:hidden}
+/* ── PAGE CONTAINERS ──────────────────────────────── */
+.page{padding:1.75rem 2rem 2rem}
+.page-wide{padding:1.75rem 2rem 2rem;max-width:1280px}
 
-/* ── GRIDS ──────────────────────────────────────────── */
+/* ── GRIDS ────────────────────────────────────────── */
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
 .grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
 .grid-cal{display:grid;grid-template-columns:1fr 290px;gap:1.25rem;align-items:start}
 
-/* ── TABS (horizontal scroll on mobile) ────────────── */
+/* ── TABS (scrollable) ────────────────────────────── */
 .tab-bar{display:flex;gap:2px;background:#fff;border:1px solid #E8E3DA;border-radius:10px;padding:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;white-space:nowrap}
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:.82rem;font-weight:600;transition:all .1s;white-space:nowrap;flex-shrink:0;border:none;background:transparent;color:#6B6560}
-.tab-btn.on{background:#F7F5F2;color:#1A1714;box-shadow:0 1px 3px rgba(26,23,20,.07)}
+.tab-btn.on{background:#F7F5F2;color:#1A1714;box-shadow:0 1px 3px rgba(26,23,20,.08)}
 
-/* ── MOBILE OVERLAY ─────────────────────────────────── */
-.sb-overlay{display:none;position:fixed;inset:0;background:rgba(26,23,20,.5);z-index:299;opacity:0;transition:opacity .25s;pointer-events:none}
+/* ── SIDEBAR OVERLAY ──────────────────────────────── */
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(26,23,20,.45);z-index:299;opacity:0;transition:opacity .25s;pointer-events:none}
 .sb-overlay.on{opacity:1;pointer-events:auto}
 
-/* ── iOS TOP BAR ─────────────────────────────────────── */
-.mob-bar{display:none;position:sticky;top:0;z-index:150;background:rgba(247,245,242,.95);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-bottom:1px solid rgba(232,227,218,.8);padding:.5rem 1rem;align-items:center;gap:.625rem;min-height:52px}
+/* ── iOS TOP BAR ──────────────────────────────────── */
+.mob-bar{display:none;position:sticky;top:0;z-index:150;background:rgba(247,245,242,.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-bottom:1px solid rgba(232,227,218,.7);padding:.5rem .875rem;align-items:center;gap:.625rem;min-height:52px}
+.mob-bar-title{flex:1;font-weight:800;font-size:1rem;color:#1A1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ── iOS BOTTOM TAB BAR ─────────────────────────────── */
-.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.96);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-top:1px solid rgba(232,227,218,.9);z-index:200;padding-bottom:env(safe-area-inset-bottom,0)}
+/* ── iOS BOTTOM TAB BAR ───────────────────────────── */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(255,255,255,.96);-webkit-backdrop-filter:blur(28px);backdrop-filter:blur(28px);border-top:1px solid rgba(232,227,218,.8);padding-bottom:env(safe-area-inset-bottom,0)}
 .mob-nav-inner{display:flex;align-items:stretch}
-.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 2px 8px;gap:3px;color:#9E9890;font-size:.58rem;font-weight:700;min-height:52px;border:none;background:none;cursor:pointer;transition:color .2s,transform .1s;position:relative;-webkit-tap-highlight-color:transparent;user-select:none}
-.mob-nav-btn:active{transform:scale(.88)}
+.mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px 8px;gap:3px;color:#9E9890;font-size:.6rem;font-weight:700;letter-spacing:.005em;min-height:54px;border:none;background:none;cursor:pointer;transition:color .15s;position:relative;-webkit-tap-highlight-color:transparent;user-select:none}
 .mob-nav-btn.on{color:#C17A3E}
-.mob-nav-icon{display:flex;align-items:center;justify-content:center;width:44px;height:28px;border-radius:12px;transition:background .2s}
-.mob-nav-btn.on .mob-nav-icon{background:#FDF3E7}
-.mob-nav-dot{position:absolute;top:6px;right:calc(50% - 20px);background:#C17A3E;color:#fff;border-radius:999px;font-size:.55rem;font-weight:800;padding:1px 5px;min-width:16px;text-align:center;line-height:1.5;border:2px solid #fff}
+.mob-nav-icon{display:flex;align-items:center;justify-content:center;width:46px;height:30px;border-radius:13px;transition:background .15s,transform .1s}
+.mob-nav-btn.on .mob-nav-icon{background:rgba(193,122,62,.12)}
+.mob-nav-btn:active .mob-nav-icon{transform:scale(.88)}
+.mob-nav-lbl{font-size:.59rem;font-weight:700;letter-spacing:.01em;transition:color .15s}
+.mob-nav-dot{position:absolute;top:5px;right:calc(50% - 22px);background:#C17A3E;color:#fff;border-radius:999px;font-size:.55rem;font-weight:800;padding:1px 5px;min-width:16px;text-align:center;line-height:1.5;border:2px solid rgba(255,255,255,.9)}
 
-/* ── CHAT ────────────────────────────────────────────── */
+/* ── STAT CARDS (mobile-native) ───────────────────── */
+.stat-card{background:#fff;border-radius:18px;padding:1rem;display:flex;flex-direction:column;gap:.25rem;box-shadow:0 1px 4px rgba(26,23,20,.07),0 0 0 1px rgba(26,23,20,.05)}
+.stat-card-val{font-size:1.6rem;font-weight:800;line-height:1;letter-spacing:-.03em}
+.stat-card-lbl{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9E9890}
+.stat-card-sub{font-size:.75rem;color:#9E9890;margin-top:.125rem}
+
+/* ── CHAT ─────────────────────────────────────────── */
 .chat-wrap{display:flex;height:100dvh;overflow:hidden}
-.chat-side{width:270px;min-width:270px;border-right:1px solid #E8E3DA;display:flex;flex-direction:column;background:#fff;flex-shrink:0;overflow:hidden}
-.chat-body{flex:1;display:flex;flex-direction:column;min-width:0;background:#F7F5F2;overflow:hidden}
+.chat-side{width:270px;min-width:270px;border-right:1px solid #E8E3DA;display:flex;flex-direction:column;background:#fff;flex-shrink:0}
+.chat-body{flex:1;display:flex;flex-direction:column;min-width:0;background:#F7F5F2}
 
-/* ── MODAL ───────────────────────────────────────────── */
-.modal-wrap{position:fixed;inset:0;background:rgba(26,23,20,.45);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto}
-.modal-inner{background:#fff;border:1px solid #E8E3DA;border-radius:20px;width:520px;max-width:calc(100vw - 2rem);max-height:88dvh;overflow-y:auto;overflow-x:hidden}
+/* ── MODAL ────────────────────────────────────────── */
+.modal-wrap{position:fixed;inset:0;background:rgba(26,23,20,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-inner{background:#fff;border:1px solid #E8E3DA;border-radius:22px;width:500px;max-width:calc(100vw - 2rem);max-height:88dvh;overflow-y:auto;overflow-x:hidden}
 
-/* ── CARD ────────────────────────────────────────────── */
-.card-mob{background:#fff;border:1px solid #E8E3DA;border-radius:14px;padding:1rem;box-shadow:0 1px 3px rgba(26,23,20,.07);overflow:hidden;max-width:100%}
+/* ── LOGIN PAGE ───────────────────────────────────── */
+.login-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#F7F5F2;padding:1rem}
+.login-box{background:#fff;border-radius:24px;width:100%;max-width:420px;padding:2rem;box-shadow:0 8px 40px rgba(26,23,20,.1),0 0 0 1px rgba(26,23,20,.06)}
+@media(max-width:480px){
+  .login-box{border-radius:0;min-height:100dvh;padding:2rem 1.25rem;box-shadow:none;display:flex;flex-direction:column;justify-content:center}
+}
 
-/* ── DARK THEME ─────────────────────────────────────── */
-[data-theme="dark"]{--bg:#1A1714;--surf:#232018;--surfH:#2A2520;--brd:#38332E;--tx:#F0EDE8;--txS:#A89F96;--txT:#6B6560}
+/* ── DARK THEME ───────────────────────────────────── */
 [data-theme="dark"] body,[data-theme="dark"] #app{background:#1A1714;color:#F0EDE8}
 [data-theme="dark"] .app-main{background:#1A1714}
 [data-theme="dark"] .app-sidebar{background:#232018!important;border-color:#38332E!important}
-[data-theme="dark"] .mob-bar{background:rgba(26,23,20,.96)!important;border-color:#38332E!important}
+[data-theme="dark"] .mob-bar{background:rgba(26,23,20,.95)!important;border-color:#38332E!important}
 [data-theme="dark"] .mob-nav{background:rgba(26,23,20,.97)!important;border-color:#38332E!important}
 [data-theme="dark"] .tab-bar{background:#232018;border-color:#38332E}
-[data-theme="dark"] .tab-btn{color:#A89F96}
 [data-theme="dark"] .tab-btn.on{background:#2A2520;color:#F0EDE8}
 [data-theme="dark"] .modal-inner{background:#232018;border-color:#38332E}
+[data-theme="dark"] .stat-card{background:#232018;box-shadow:0 1px 4px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.05)}
+[data-theme="dark"] .login-box{background:#232018;border-color:#38332E}
 
-/* ── MOBILE ──────────────────────────────────────────── */
+/* ── MOBILE ───────────────────────────────────────── */
 @media(max-width:768px){
-  .app-sidebar{position:fixed;left:0;top:0;bottom:0;z-index:300;transform:translateX(-100%);width:240px}
-  .app-sidebar.open{transform:translateX(0);box-shadow:4px 0 24px rgba(26,23,20,.18)}
-  .app-main{max-height:calc(100dvh - 52px);max-width:100vw}
+  .app-sidebar{position:fixed;left:0;top:0;bottom:0;z-index:300;transform:translateX(-260%);width:260px}
+  .app-sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vw transparent,4px 0 32px rgba(26,23,20,.2)}
+  .app-main{max-height:calc(100dvh - 52px);overflow-x:hidden}
   .sb-overlay{display:block}
   .mob-bar{display:flex}
   .mob-nav{display:flex}
-  .page,.page-wide{padding:.875rem .875rem 90px}
+  .page,.page-wide{padding:.875rem .875rem 96px}
   .grid-4{grid-template-columns:1fr 1fr;gap:.625rem}
-  .grid-3{grid-template-columns:1fr}
+  .grid-3{grid-template-columns:1fr 1fr;gap:.625rem}
   .grid-2{grid-template-columns:1fr}
   .grid-auto{grid-template-columns:1fr}
   .grid-cal{grid-template-columns:1fr}
   .cal-side-col{display:none}
-  .chat-wrap{flex-direction:column;height:auto;min-height:calc(100dvh - 140px)}
-  .chat-side{width:100%;min-width:unset;border-right:none;border-bottom:1px solid #E8E3DA;max-height:40vh;overflow-y:auto}
-  .chat-body{min-height:50vh}
+  .chat-wrap{flex-direction:column;height:auto;min-height:calc(100dvh - 106px)}
+  .chat-side{width:100%;min-width:unset;border-right:none;border-bottom:1px solid #E8E3DA;max-height:38vh;overflow-y:auto}
+  .chat-body{flex:1;min-height:45vh}
   .hide-mob{display:none!important}
   .modal-wrap{align-items:flex-end;padding:0;overflow:hidden}
-  .modal-inner{width:100vw!important;max-width:100vw!important;border-radius:20px 20px 0 0!important;max-height:92dvh!important}
+  .modal-inner{width:100vw!important;max-width:100vw!important;border-radius:24px 24px 0 0!important;max-height:94dvh!important}
   table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tab-bar{margin-left:-.875rem;margin-right:-.875rem;padding:4px .875rem;border-radius:0;border-left:none;border-right:none}
 }
-@media(max-width:480px){
-  .page,.page-wide{padding:.75rem .75rem 90px}
+@media(max-width:390px){
+  .page,.page-wide{padding:.75rem .75rem 96px}
   .grid-4{grid-template-columns:1fr 1fr;gap:.5rem}
+  .grid-3{grid-template-columns:1fr 1fr;gap:.5rem}
+  .stat-card{padding:.875rem}
+  .stat-card-val{font-size:1.4rem}
 }
 </style>
 </head>
@@ -171,12 +187,36 @@ async function loadProf(uid){
   for(let i=0;i<10;i++){const{data}=await sb.from('profiles').select('*').eq('id',uid).single();if(data)return data;await sleep(600);}
   return null;
 }
-async function signUp(email,pw,meta){
-  const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:meta}});
-  if(error||!data?.user)return{error:error||{message:'Ошибка'}};
-  const pl={id:data.user.id,full_name:meta.full_name,email,role:meta.role||'manager',avatar_text:meta.avatar_text||ini(meta.full_name),subject:meta.subject||null,phone:null};
+async async function signUp(email,pw,meta){
+  // Sanitize role — must be one of the allowed values
+  const allowedRoles=['manager','teacher','student'];
+  const safeRole=allowedRoles.includes(meta.role)?meta.role:'student';
+  const safeMeta={...meta,role:safeRole};
+  
+  const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:safeMeta}});
+  if(error||!data?.user)return{error:error||{message:'Ошибка регистрации'}};
+  
+  const pl={
+    id:data.user.id,
+    full_name:safeMeta.full_name||email.split('@')[0],
+    email,
+    role:safeRole,
+    avatar_text:ini(safeMeta.full_name||email),
+    subject:safeMeta.subject||null,
+    phone:null
+  };
+  
+  // Try insert, then upsert as fallback
   const{error:e2}=await sb.from('profiles').insert(pl);
-  if(e2)await sb.from('profiles').upsert(pl,{onConflict:'id'});
+  if(e2){
+    console.log('Insert failed, trying upsert:', e2.message);
+    const{error:e2b}=await sb.from('profiles').upsert(pl,{onConflict:'id'});
+    if(e2b){console.error('Upsert also failed:', e2b.message);}
+  }
+  
+  // Small delay to let trigger fire
+  await sleep(500);
+  
   const{error:e3}=await sb.auth.signInWithPassword({email,password:pw});
   if(e3)return{error:e3};
   return{error:null};
@@ -392,8 +432,8 @@ function tarea(val,onChange){
 // ═══════════════════════════════════════════════
 function pgLogin(){
   let mode='login',fn='',role='manager',subj='',email='',pw='',showPw=false;
-  const wrap=dv({minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',padding:'1rem'});
-  const box=dv({width:'100%',maxWidth:'440px',maxWidth:'100%',background:C.surf,border:`1px solid ${C.brd}`,borderRadius:'20px',padding:'2.5rem',boxShadow:C.shL});
+  const wrap=dv({});wrap.className='login-wrap';
+  const box=dv({});box.className='login-box';
   const logoW=dv({textAlign:'center',marginBottom:'2rem'});
   const logoIc=dv({width:'52px',height:'52px',borderRadius:'14px',background:`linear-gradient(135deg,${C.ac},#e8955a)`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 1rem',boxShadow:`0 4px 16px ${C.ac}44`});
   logoIc.appendChild(ic('grad',24,'#fff'));logoW.appendChild(logoIc);
@@ -527,7 +567,7 @@ function pgSidebar(sOverlay){
   // Logo mark
   const lMark=dv({width:'28px',height:'28px',borderRadius:'8px',background:`linear-gradient(135deg,${C.ac},#e8955a)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0'});
   lMark.appendChild(ic('grad',14,'#fff'));topbar.appendChild(lMark);
-  const titleMap={dashboard:'Обзор',courses:'Курсы',course:'Курс',cal:'Календарь',tasks:'Задачи',teachers:'Преподаватели',msgs:'Сообщения',search:'Поиск','t-home':'Мои курсы','t-sched':'Расписание','t-tasks':'Мои задачи','s-home':'Мой курс','s-sched':'Расписание','s-mats':'Материалы','s-docs':'Документы'};
+  const titleMap={dashboard:'Обзор',courses:'Курсы',course:'Курс',cal:'Календарь',tasks:'Задачи',teachers:'Преподаватели',msgs:'Сообщения',search:'Поиск','t-home':'Мои курсы','t-sched':'Расписание','t-tasks':'Мои задачи','t-hw':'Задания','s-home':'Мой курс','s-sched':'Расписание','s-mats':'Материалы','s-docs':'Документы','s-hw':'Мои задания'};
   topbar.appendChild(dv({flex:'1',fontWeight:'800',fontSize:'1rem',color:C.tx,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginLeft:'.5rem'},titleMap[nav]||'EduFlow'));
   if(unread>0){const nb=dv({display:'flex',alignItems:'center',gap:'5px',padding:'4px 10px',background:C.acL,borderRadius:'999px',cursor:'pointer'});
     nb.appendChild(ic('msg',14,C.ac));
@@ -535,7 +575,9 @@ function pgSidebar(sOverlay){
     nb.onclick=()=>setS({nav:'msgs'});topbar.appendChild(nb);}
   // Avatar
   const uAvatar=av(prof.avatar_text||'??',rColor(prof.role),30);uAvatar.style.cursor='pointer';
-  uAvatar.onclick=()=>signOut();topbar.appendChild(uAvatar);
+  uAvatar.title='Профиль';
+  uAvatar.onclick=()=>{const m=modalProfile();document.body.appendChild(m);};
+  topbar.appendChild(uAvatar);
   
   // Inserting topbar just before the aside in the main layout
   // We return both as a fragment
@@ -599,10 +641,13 @@ function pgDashboard(){
   const unread=msgs.filter(m=>m.receiver_id===prof.id&&!m.read).length;
   const statsRow=document.createElement('div');statsRow.className='grid-4';statsRow.style.marginBottom='2rem';
   [{lbl:'Активных курсов',val:courses.length,icon:'courses',col:C.ac,sub:`${courses.reduce((s,c)=>s+(c.students?.length||0),0)} слушателей`},{lbl:'Лекций на неделе',val:upcoming.length,icon:'cal',col:C.bl},{lbl:'Срочных задач',val:urgent.length,icon:'tasks',col:urgent.length>0?C.rd:C.gr},{lbl:'Новых сообщений',val:unread,icon:'msg',col:C.pu}].forEach(s=>{
-    const c2=card(null);c2.style.padding='1.25rem';const row=dv({display:'flex',justifyContent:'space-between',alignItems:'flex-start'});const lft=dv({});
-    lft.appendChild(dv({fontSize:'.75rem',color:C.txS,fontWeight:'700',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'.5rem'},s.lbl));lft.appendChild(dv({fontSize:'1.75rem',fontWeight:'800',color:C.tx,lineHeight:'1'},String(s.val)));if(s.sub)lft.appendChild(dv({fontSize:'.73rem',color:C.txT,marginTop:'.3rem'},s.sub));
-    const icB=dv({width:'38px',height:'38px',borderRadius:'10px',background:s.col+'18',display:'flex',alignItems:'center',justifyContent:'center'});icB.appendChild(ic(s.icon,18,s.col));row.appendChild(lft);row.appendChild(icB);c2.appendChild(row);statsRow.appendChild(c2);
-  });wrap.appendChild(statsRow);
+    const c2=document.createElement('div');c2.className='stat-card';
+    c2.appendChild(Object.assign(document.createElement('div'),{className:'stat-card-lbl',textContent:s.lbl}));
+    const valEl=Object.assign(document.createElement('div'),{className:'stat-card-val',textContent:String(s.val)});
+    valEl.style.color=s.col;c2.appendChild(valEl);
+    if(s.sub)c2.appendChild(Object.assign(document.createElement('div'),{className:'stat-card-sub',textContent:s.sub}));
+    statsRow.appendChild(c2);
+  });;wrap.appendChild(statsRow);
   const cols=dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1.5rem',marginBottom:'2rem'});
   const upCard=card(null);upCard.style.padding='1.25rem';upCard.appendChild(sHead('cal','Ближайшие лекции',upcoming.length,C.bl));
   if(!upcoming.length)upCard.appendChild(empty('Нет лекций на этой неделе'));
@@ -728,7 +773,47 @@ function tabStudents(course,prof,reload){
     hdr.appendChild(btn('Экспорт',()=>exportStudents(course),{variant:'secondary',size:'sm',icon:'download'}));
     hdr.appendChild(btn('Добавить слушателя',()=>{
       let fn='',ph='',em='',org='';
-      const m=modal('Добавить слушателя',[fld('ФИО',inp({placeholder:'Иванова Мария Владимировна',onInput:v=>fn=v})),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Телефон',inp({onInput:v=>ph=v})),fld('Email',inp({type:'email',onInput:v=>em=v}))),fld('Организация',inp({onInput:v=>org=v})),dv({display:'flex',justifyContent:'flex-end',gap:'.75rem'},btn('Отмена',()=>m.remove(),{variant:'secondary'}),btn('Добавить',async()=>{if(!fn.trim()){toast('Введите ФИО','err');return;}const{error}=await sb.from('students').insert({course_id:course.id,full_name:fn,phone:ph,email:em,organization:org,has_passport:false,has_diploma:false,has_statement:false,has_contract:false,has_payment:false});if(error){toast('Ошибка: '+error.message,'err');return;}toast('Слушатель добавлен');m.remove();await reloadCourse();}))],()=>m.remove());document.body.appendChild(m);
+      const addBtn=btn('Добавить и пригласить',async()=>{
+        if(!fn.trim()){toast('Введите ФИО','err');return;}
+        if(!em.trim()){toast('Введите email','err');return;}
+        // Check if already added
+        const existing=(course.students||[]).find(s=>s.email?.toLowerCase()===em.toLowerCase());
+        if(existing){toast('Слушатель с таким email уже в курсе','err');return;}
+        const{error}=await sb.from('students').insert({course_id:course.id,full_name:fn,phone:ph,email:em,organization:org,has_passport:false,has_diploma:false,has_statement:false,has_contract:false,has_payment:false});
+        if(error){toast('Ошибка: '+error.message,'err');return;}
+        // Show invite instructions
+        const siteUrl=window.location.origin+window.location.pathname;
+        const inviteText=`Здравствуйте, ${fn}!\n\nВы зачислены на курс «${course.title}».\n\nДля доступа к платформе EduFlow:\n1. Перейдите по ссылке: ${siteUrl}\n2. Нажмите «Регистрация»\n3. Выберите роль «Слушатель»\n4. Укажите email: ${em}\n\nВажно: используйте именно этот email, иначе система не найдёт вас.`;
+        m.remove();
+        await reloadCourse();
+        // Show invite modal
+        const invWrap=dv({padding:'.5rem'});
+        const invTitle=dv({fontWeight:'800',fontSize:'1rem',color:C.tx,marginBottom:'.75rem'},'✅ Слушатель добавлен');
+        const invSub=dv({fontSize:'.84rem',color:C.txS,marginBottom:'1rem'},'Отправьте это приглашение слушателю:');
+        const invBox=document.createElement('textarea');
+        Object.assign(invBox.style,{width:'100%',padding:'.875rem',background:C.bg,border:`1px solid ${C.brd}`,borderRadius:'12px',fontSize:'.8rem',color:C.tx,lineHeight:'1.6',resize:'none',fontFamily:'inherit',minHeight:'180px'});
+        invBox.value=inviteText;invBox.readOnly=true;
+        const copyBtn=btn('📋 Скопировать приглашение',()=>{
+          navigator.clipboard.writeText(inviteText).then(()=>{copyBtn.textContent='✅ Скопировано!';setTimeout(()=>{copyBtn.textContent='📋 Скопировать приглашение';},2000);});
+        },{variant:'primary',full:true});
+        const closeBtn=btn('Закрыть',()=>m2.remove(),{variant:'secondary',full:true});
+        invWrap.appendChild(invTitle);invWrap.appendChild(invSub);invWrap.appendChild(invBox);
+        invWrap.appendChild(dv({display:'flex',flexDirection:'column',gap:'.5rem',marginTop:'.875rem'},copyBtn,closeBtn));
+        const m2=modal('Пригласить слушателя',[invWrap],()=>m2.remove(),true);
+        document.body.appendChild(m2);
+      },{variant:'primary'});
+      const m=modal('Добавить слушателя',[
+        fld('ФИО *',inp({placeholder:'Иванова Мария Владимировна',onInput:v=>fn=v})),
+        dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},
+          fld('Телефон',inp({placeholder:'+7 900 000-00-00',onInput:v=>ph=v})),
+          fld('Email *',inp({type:'email',placeholder:'student@mail.ru',onInput:v=>em=v}))),
+        fld('Организация',inp({placeholder:'ООО Компания',onInput:v=>org=v})),
+        dv({background:C.blL,border:`1px solid ${C.blB}`,borderRadius:'10px',padding:'.75rem',fontSize:'.8rem',color:C.bl,lineHeight:'1.5'},
+          'ℹ️ После добавления система создаст пригласительное сообщение которое нужно отправить слушателю. Он зарегистрируется с указанным email и получит доступ к курсу.'),
+        dv({display:'flex',justifyContent:'flex-end',gap:'.75rem',marginTop:'.25rem'},
+          btn('Отмена',()=>m.remove(),{variant:'secondary'}),
+          addBtn)
+      ],()=>m.remove(),true);document.body.appendChild(m);
     },{variant:'primary',icon:'plus',size:'sm'}));
   }
   wrap.appendChild(hdr);
@@ -744,6 +829,15 @@ function tabStudents(course,prof,reload){
         let nf=s.full_name,np=s.phone||'',ne=s.email||'',no=s.organization||'';
         const m=modal('Редактировать слушателя',[fld('ФИО',inp({value:nf,onInput:v=>nf=v})),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Телефон',inp({value:np,onInput:v=>np=v})),fld('Email',inp({type:'email',value:ne,onInput:v=>ne=v}))),fld('Организация',inp({value:no,onInput:v=>no=v})),dv({display:'flex',justifyContent:'flex-end',gap:'.75rem'},btn('Отмена',()=>m.remove(),{variant:'secondary'}),btn('Сохранить',async()=>{await sb.from('students').update({full_name:nf,phone:np,email:ne,organization:no}).eq('id',s.id);toast('Обновлено');m.remove();await reloadCourse();}))],()=>m.remove());document.body.appendChild(m);
       },'Редактировать'));
+      // Invite button - shows invite text for students without account
+      if(s.email){
+        const invBtn=ibtn('link',()=>{
+          const siteUrl=window.location.origin+window.location.pathname;
+          const inviteText=`Здравствуйте, ${s.full_name}!\n\nВы зачислены на курс «${course.title}».\n\nДля доступа к EduFlow:\n1. Ссылка: ${siteUrl}\n2. Нажмите «Регистрация»\n3. Роль: Слушатель\n4. Email: ${s.email}`;
+          navigator.clipboard.writeText(inviteText).then(()=>toast('Приглашение скопировано 📋'));
+        },'Скопировать приглашение',C.bl);
+        rgt.appendChild(invBtn);
+      }
       rgt.appendChild(ibtn('trash',async()=>{if(!confirm('Удалить слушателя?'))return;await sb.from('students').delete().eq('id',s.id);toast('Удалено');await reloadCourse();},'Удалить',C.rd));
     }
     tr3.appendChild(rgt);inf.appendChild(tr3);inf.appendChild(dv({fontSize:'.78rem',color:C.txS,marginBottom:'.625rem'},`${s.organization||'—'} · ${s.phone||'нет тел.'} · ${s.email||'нет email'}`));
