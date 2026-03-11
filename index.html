@@ -224,34 +224,34 @@ async function signUp(email,pw,meta){
   const allowedRoles=['manager','teacher','student'];
   const safeRole=allowedRoles.includes(meta.role)?meta.role:'student';
   const safeMeta={...meta,role:safeRole};
-  
+
   const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:safeMeta}});
   if(error||!data?.user)return{error:error||{message:'Ошибка регистрации'}};
-  
-  // Wait for trigger to fire, then ensure profile has correct role
-  await sleep(800);
-  
+
+  // Give Supabase trigger time to create profile row
+  await sleep(1200);
+
+  // Upsert profile with correct role — overrides any bad trigger insert
   const pl={
     id:data.user.id,
     full_name:safeMeta.full_name||email.split('@')[0],
-    email,
+    email:email.toLowerCase().trim(),
     role:safeRole,
     avatar_text:ini(safeMeta.full_name||email),
-    subject:safeMeta.subject||null,
-    phone:null
+    subject:safeMeta.subject||null
   };
-  
-  // Try upsert — this handles both "trigger already created row" and "no row yet"
+
+  // Try upsert first (handles existing row from trigger)
   const{error:e2}=await sb.from('profiles').upsert(pl,{onConflict:'id'});
   if(e2){
-    console.warn('Profile upsert failed:', e2.message);
-    // Try plain insert as fallback
-    await sb.from('profiles').insert(pl);
+    // If upsert fails due to constraint, try UPDATE only (trigger already inserted with wrong role)
+    const{error:e3}=await sb.from('profiles').update({role:safeRole,full_name:pl.full_name,avatar_text:pl.avatar_text,subject:pl.subject}).eq('id',data.user.id);
+    if(e3)console.warn('Profile role fix failed:',e3.message);
   }
-  
-  await sleep(300);
-  const{error:e3}=await sb.auth.signInWithPassword({email,password:pw});
-  if(e3)return{error:e3};
+
+  await sleep(400);
+  const{error:e4}=await sb.auth.signInWithPassword({email,password:pw});
+  if(e4)return{error:e4};
   return{error:null};
 }
 async function signIn(email,pw){const{error}=await sb.auth.signInWithPassword({email,password:pw});return error;}
@@ -426,7 +426,7 @@ function modal(title,children,onClose,wide=false){
   const cb=document.createElement('button');Object.assign(cb.style,{background:'none',border:'none',color:C.txT,cursor:'pointer',padding:'4px',borderRadius:'6px',display:'flex'});cb.appendChild(ic('x',18));cb.onclick=onClose;
   hdr.appendChild(t2);hdr.appendChild(cb);
   const body=dv({padding:'1.5rem'});
-  (Array.isArray(children)?children:[children]).filter(Boolean).forEach(n=>body.appendChild(typeof n==='string'?tx(n):n));
+  (Array.isArray(children)?children:[children]).filter(Boolean).forEach(n=>{if(n==null||n===false||n===undefined)return;body.appendChild(typeof n==='string'?tx(n):n);});
   box.appendChild(hdr);box.appendChild(body);ov.appendChild(box);
   ov.onclick=e=>{if(e.target===ov)onClose();};
   return ov;
@@ -463,10 +463,15 @@ function sHead(icon,title,cnt,col=C.ac){
   if(cnt>0)h.appendChild(sp({marginLeft:'auto',fontSize:'.72rem',fontWeight:'700',color:C.txT,background:C.bg,border:`1px solid ${C.brd}`,borderRadius:'999px',padding:'1px 8px'},String(cnt)));
   return h;
 }
-function tarea(val,onChange){
-  const e=document.createElement('textarea');e.rows=3;e.value=val||'';
-  Object.assign(e.style,{width:'100%',background:C.bg,border:`1px solid ${C.brd}`,borderRadius:'8px',padding:'8px 12px',color:C.tx,fontSize:'.875rem',outline:'none',resize:'vertical'});
-  e.addEventListener('input',ev=>onChange(ev.target.value));
+function tarea(valOrOpts,onChange){
+  // Accept either tarea(val, onChange) or tarea({placeholder,value,onInput,rows,...})
+  const opts=typeof valOrOpts==='object'&&valOrOpts!==null&&!(valOrOpts instanceof Node)?valOrOpts:{value:valOrOpts,onInput:onChange};
+  const e=document.createElement('textarea');
+  e.rows=opts.rows||3;
+  e.value=opts.value||'';
+  if(opts.placeholder)e.placeholder=opts.placeholder;
+  Object.assign(e.style,{width:'100%',background:C.bg,border:`1px solid ${C.brd}`,borderRadius:'8px',padding:'8px 12px',color:C.tx,fontSize:'.875rem',outline:'none',resize:'vertical',fontFamily:'inherit',lineHeight:'1.5'});
+  e.addEventListener('input',ev=>{if(opts.onInput)opts.onInput(ev.target.value);else if(typeof onChange==='function')onChange(ev.target.value);});
   e.onfocus=()=>e.style.borderColor=C.ac;e.onblur=()=>e.style.borderColor=C.brd;
   return e;
 }
@@ -854,7 +859,11 @@ function pgCourseDetail(){
   if(mgrs.length){const mgW=dv({});mgW.appendChild(dv({fontSize:'.7rem',color:C.txT,fontWeight:'700',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'6px'},'Менеджеры'));const mr=dv({display:'flex',gap:'.4rem',flexWrap:'wrap'});mgrs.forEach(m=>{const pill=dv({display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px 4px 6px',background:C.acL,border:`1px solid ${C.acB}`,borderRadius:'999px'});pill.appendChild(av(m.avatar_text,C.ac,22));pill.appendChild(sp({fontSize:'.75rem',fontWeight:'600',color:C.ac},(m.full_name||'').split(' ')[0]));mr.appendChild(pill);});mgW.appendChild(mr);hrow.appendChild(mgW);}
   hb.appendChild(hrow);hcard.appendChild(hb);wrap.appendChild(hcard);
   // Tabs
-  const TABS=[{id:'teachers',icon:'users',lbl:'Преподаватели'},{id:'students',icon:'grad',lbl:'Слушатели'},{id:'schedule',icon:'cal',lbl:'Расписание'},{id:'materials',icon:'video',lbl:'Материалы'},{id:'tasks',icon:'tasks',lbl:'Задачи'},{id:'assignments',icon:'doc',lbl:'Задания'},{id:'finance',icon:'money',lbl:'Финансы'}];
+  const ALL_TABS=[{id:'teachers',icon:'users',lbl:'Преподаватели'},{id:'students',icon:'grad',lbl:'Слушатели'},{id:'schedule',icon:'cal',lbl:'Расписание'},{id:'materials',icon:'video',lbl:'Материалы'},{id:'tasks',icon:'tasks',lbl:'Задачи'},{id:'assignments',icon:'doc',lbl:'Задания'},{id:'finance',icon:'money',lbl:'Финансы'}];
+  // Tasks tab — managers only; teachers/students don't manage course tasks
+  const isManager=prof.role==='manager';
+  const isTeacher=prof.role==='teacher';
+  const TABS=isManager?ALL_TABS:ALL_TABS.filter(t=>!['teachers','students','tasks','finance'].includes(t.id));
   let activeTab=S.activeTab||'teachers';
   const tabBar=document.createElement('div');tabBar.className='tab-bar';tabBar.style.marginBottom='1.5rem';
   const tBtns={};const tabCont=dv({});
