@@ -178,6 +178,8 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 
 
 
+
+
 // Global error boundary
 window.onerror = function(msg, src, line, col, err) {
   var app = document.getElementById('app');
@@ -198,6 +200,7 @@ const C={bg:'#F7F5F2',surf:'#fff',surfH:'#F2EFE9',brd:'#E8E3DA',brdS:'#D4CCC0',
   rd:'#C0392B',rdL:'#FDF0EE',rdB:'#F0BCBA',
   yw:'#B07A1A',ywL:'#FEF9EC',ywB:'#F0DCAA',
   pu:'#6B3FA0',puL:'#F3EEFF',puB:'#CEBBF0',
+  orange:'#D4600A',orangeL:'#FEF3E2',orangeB:'#F0C88A',
   sh:'0 1px 3px rgba(26,23,20,.07)',shM:'0 4px 16px rgba(26,23,20,.09)',shL:'0 12px 36px rgba(26,23,20,.13)'};
 
 const today=()=>new Date().toISOString().split('T')[0];
@@ -228,22 +231,23 @@ async function signUp(email,pw,meta){
   const allowedRoles=['manager','teacher','student'];
   const safeRole=allowedRoles.includes(meta.role)?meta.role:'student';
 
-  // Step 1: Create auth user (triggers profile creation with possibly wrong role)
+  // Step 1: Register user
   const{data,error}=await sb.auth.signUp({
     email,password:pw,
     options:{data:{...meta,role:safeRole}}
   });
   if(error||!data?.user)return{error:error||{message:'Ошибка регистрации'}};
-
   const uid=data.user.id;
 
-  // Step 2: Sign in immediately to get session for DB access
-  await sleep(600);
+  // Step 2: Sign in to get session
+  await sleep(800);
   const{error:siErr}=await sb.auth.signInWithPassword({email,password:pw});
   if(siErr)return{error:siErr};
 
-  // Step 3: Force correct role via UPDATE (trigger may have set wrong value)
-  await sleep(400);
+  // Step 3: Wait for trigger to create profile
+  await sleep(600);
+
+  // Step 4: Force correct role — try UPDATE first, then INSERT
   const patch={
     role:safeRole,
     full_name:meta.full_name||email.split('@')[0],
@@ -251,12 +255,24 @@ async function signUp(email,pw,meta){
     avatar_text:ini(meta.full_name||email),
     subject:meta.subject||null
   };
-  // Try UPDATE first (row already exists from trigger)
-  const{error:ue}=await sb.from('profiles').update(patch).eq('id',uid);
-  if(ue){
-    // Row doesn't exist yet — insert it
-    await sb.from('profiles').insert({id:uid,...patch});
+  const{error:ue,data:upd}=await sb.from('profiles').update(patch).eq('id',uid).select();
+  if(ue||!upd||upd.length===0){
+    // Profile not yet created — insert manually
+    const{error:ie}=await sb.from('profiles').insert({id:uid,...patch});
+    if(ie){
+      // Last resort: try upsert
+      await sb.from('profiles').upsert({id:uid,...patch},{onConflict:'id'});
+    }
   }
+
+  // Step 5: Verify profile was saved with correct role
+  await sleep(300);
+  const{data:checkProf}=await sb.from('profiles').select('role').eq('id',uid).single();
+  if(checkProf&&checkProf.role!==safeRole){
+    // Trigger overwrote role — fix it again
+    await sb.from('profiles').update({role:safeRole}).eq('id',uid);
+  }
+
   return{error:null};
 }
 async function signIn(email,pw){const{error}=await sb.auth.signInWithPassword({email,password:pw});return error;}
@@ -272,7 +288,7 @@ async function loadAll(prof){
   else{await Promise.all([loadCourses(prof),loadMsgs(prof),loadAllP()]);}
   // Load personal tasks (no course) for all roles
   try{
-    const{data:pt}=await sb.from('tasks').select('*').is('course_id',null).eq('created_by',prof.id);
+    const{data:pt}=await sb.from('tasks').select('*').is('course_id',null);
     S.personalTasks=pt||[];
   }catch(e){S.personalTasks=[];}
 }
@@ -1133,7 +1149,7 @@ function tabStudents(course,prof,reload){
       if(prof.role==='manager')pill.appendChild(ic('chevron',9,pillCol));
 
       if(prof.role==='manager'){
-        const dd=dv({position:'absolute',top:'calc(100% + 4px)',left:'0',zIndex:'60',
+        const dd=dv({position:'fixed',top:'0',left:'0',zIndex:'9999',
           background:C.surf,border:`1px solid ${C.brd}`,borderRadius:'12px',
           boxShadow:'0 8px 24px rgba(0,0,0,.14)',padding:'.5rem',minWidth:'230px',display:'none'});
         const rebuildDD=()=>{
@@ -1171,8 +1187,16 @@ function tabStudents(course,prof,reload){
         };
         rebuildDD();pill.appendChild(dd);
         let open=false;
-        pill.onclick=(e)=>{e.stopPropagation();open=!open;dd.style.display=open?'block':'none';
-          if(open){const close=()=>{open=false;dd.style.display='none';document.removeEventListener('click',close);};setTimeout(()=>document.addEventListener('click',close),0);}};
+        pill.onclick=(e)=>{
+          e.stopPropagation();open=!open;
+          if(open){
+            const rect=pill.getBoundingClientRect();
+            dd.style.top=(rect.bottom+window.scrollY+4)+'px';
+            dd.style.left=Math.min(rect.left+window.scrollX,window.innerWidth-240)+'px';
+          }
+          dd.style.display=open?'block':'none';
+          if(open){const close=()=>{open=false;dd.style.display='none';document.removeEventListener('click',close);};setTimeout(()=>document.addEventListener('click',close),0);}
+        };
       }
       docRow.appendChild(pill);
       inf.appendChild(docRow);row.appendChild(inf);c2.appendChild(row);listWrap.appendChild(c2);
@@ -1429,28 +1453,35 @@ function chatModal(senderId,receiverId,courseId,allP,msgs,onClose){
 // MANAGERS: OTHER PAGES
 // ═══════════════════════════════════════════════
 function pgTeachers(){
-  const{allP,courses,prof,msgs}=S;let teachers=allP.filter(p=>p.role==='teacher');
+  const{allP,courses,prof,msgs}=S;
+  let teachers=allP.filter(p=>p.role==='teacher');
   const wrap=dv({maxWidth:'960px'});wrap.className='fade page';
+
+  // Заголовок
   const titleRow=dv({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem'});
   titleRow.appendChild(hx(1,{margin:'0',fontSize:'1.4rem',fontWeight:'800',color:C.tx},'База преподавателей'));
   titleRow.appendChild(dv({fontSize:'.85rem',color:C.txS,fontWeight:'600'},`Всего: ${teachers.length}`));
   wrap.appendChild(titleRow);
 
-  // Search + sort
+  if(!teachers.length){wrap.appendChild(empty('Нет преподавателей'));return wrap;}
+
+  // Поиск + сортировка
   let searchQ='',sortBy='name';
   const searchBar=dv({display:'flex',gap:'.5rem',marginBottom:'1.25rem',flexWrap:'wrap',alignItems:'center'});
   const searchInp=inp({placeholder:'🔍 Поиск по имени, дисциплине...',onInput:v=>{searchQ=v;renderList();}});
-  searchInp.style.flex='1';searchInp.style.minWidth='180px';
+  searchInp.style.cssText='flex:1;min-width:180px';
   const sortSel=sel([['name','По имени'],['subj','По дисциплине'],['courses','По курсам']],sortBy,v=>{sortBy=v;renderList();});
-  sortSel.style.width='auto';
+  sortSel.style.cssText='width:auto;min-width:120px';
   searchBar.appendChild(searchInp);searchBar.appendChild(sortSel);
   wrap.appendChild(searchBar);
 
-  const listWrap=dv({display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'1rem'});
-  wrap.appendChild(listWrap);
+  // Сетка карточек
+  const grid=dv({});
+  grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem';
+  wrap.appendChild(grid);
 
   function renderList(){
-    listWrap.innerHTML='';
+    grid.innerHTML='';
     let list=[...teachers];
     if(searchQ){
       const q=searchQ.toLowerCase();
@@ -1463,38 +1494,74 @@ function pgTeachers(){
       const cb2=courses.filter(c=>c.course_teachers?.some(ct=>ct.teacher_id===b.id)).length;
       return cb2-ca;
     });
-    if(!list.length){listWrap.appendChild(empty(searchQ?'Ничего не найдено':'Нет преподавателей'));return;}
+    if(!list.length){grid.appendChild(empty(searchQ?'Ничего не найдено':'Нет преподавателей'));return;}
+
     list.forEach(t=>{
       const tCourses=courses.filter(c=>c.course_teachers?.some(ct=>ct.teacher_id===t.id));
-      const c2=card(null);c2.style.cssText='display:flex;flex-direction:column;gap:.75rem';
-      const hr=dv({display:'flex',gap:'.75rem',alignItems:'center'});
-      hr.appendChild(av(t.avatar_text||ini(t.full_name),C.ac,44));
-      const inf=dv({flex:'1',minWidth:'0'});
-      inf.appendChild(sp({fontWeight:'700',color:C.tx,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},t.full_name));
-      if(t.subject)inf.appendChild(sp({fontSize:'.78rem',color:C.txS,display:'block'},t.subject));
-      inf.appendChild(sp({fontSize:'.72rem',color:C.txT,display:'block'},t.email));
-      hr.appendChild(inf);
-      c2.appendChild(hr);
-      if(tCourses.length){
-        const cRow=dv({display:'flex',gap:'4px',flexWrap:'wrap'});
-        tCourses.slice(0,3).forEach(c3=>cRow.appendChild(badge(c3.title,'blue')));
-        if(tCourses.length>3)cRow.appendChild(sp({fontSize:'.72rem',color:C.txT},`+${tCourses.length-3}`));
-        c2.appendChild(cRow);
-      }else{c2.appendChild(sp({fontSize:'.78rem',color:C.txT},'Не добавлен ни в один курс'));}
-      const foot=dv({display:'flex',gap:'.5rem',justifyContent:'flex-end'});
-      if(prof.id!==t.id){
-        const conv=msgs.find(m=>(m.sender_id===t.id&&m.receiver_id===prof.id)||(m.sender_id===prof.id&&m.receiver_id===t.id));
-        const unrd=msgs.filter(m=>m.sender_id===t.id&&m.receiver_id===prof.id&&!m.read).length;
-        const msgBtn=btn(unrd?`💬 ${unrd} новых`:'💬 Написать',()=>setS({nav:'msgs',msgTarget:t.id}),{variant:'secondary',size:'sm'});
-        if(unrd)msgBtn.style.color=C.rd;
-        foot.appendChild(msgBtn);
+      const unrd=msgs.filter(m=>m.sender_id===t.id&&m.receiver_id===prof.id&&!m.read).length;
+
+      // Карточка с явными стилями (не через card())
+      const card2=dv({});
+      card2.style.cssText=`background:#fff;border:1px solid #E8E3DA;border-radius:16px;padding:1.25rem;box-shadow:0 1px 4px rgba(26,23,20,.08),0 0 0 1px rgba(26,23,20,.04);display:flex;flex-direction:column;gap:.875rem;transition:box-shadow .15s,border-color .15s`;
+      card2.onmouseenter=()=>{card2.style.boxShadow='0 4px 16px rgba(26,23,20,.10)';card2.style.borderColor='#D4CCC0';};
+      card2.onmouseleave=()=>{card2.style.boxShadow='0 1px 4px rgba(26,23,20,.08)';card2.style.borderColor='#E8E3DA';};
+
+      // Аватар + имя
+      const topRow=dv({});topRow.style.cssText='display:flex;gap:.875rem;align-items:center';
+      const avatarEl=av(t.avatar_text||ini(t.full_name),C.ac,48);
+      topRow.appendChild(avatarEl);
+      const nameCol=dv({});nameCol.style.cssText='flex:1;min-width:0;overflow:hidden';
+      const namEl=sp({fontWeight:'800',color:'#1A1714',display:'block',fontSize:'1rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},t.full_name||'—');
+      nameCol.appendChild(namEl);
+      if(t.subject){
+        const subjEl=sp({fontSize:'.8rem',color:'#6B6560',display:'block',marginTop:'1px'},t.subject);
+        nameCol.appendChild(subjEl);
       }
-      c2.appendChild(foot);
-      listWrap.appendChild(c2);
+      const emailEl=sp({fontSize:'.72rem',color:'#9E9890',display:'block',marginTop:'2px'},t.email||'');
+      nameCol.appendChild(emailEl);
+      topRow.appendChild(nameCol);
+      card2.appendChild(topRow);
+
+      // Курсы
+      if(tCourses.length){
+        const cRow=dv({});cRow.style.cssText='display:flex;gap:5px;flex-wrap:wrap';
+        tCourses.slice(0,4).forEach(c3=>{
+          const b=dv({});
+          b.style.cssText=`display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700;background:${C.blL};color:${C.bl};border:1px solid ${C.blB}`;
+          b.textContent=c3.title;
+          cRow.appendChild(b);
+        });
+        if(tCourses.length>4){
+          const more=sp({fontSize:'.72rem',color:'#9E9890',alignSelf:'center'},`+${tCourses.length-4}`);
+          cRow.appendChild(more);
+        }
+        card2.appendChild(cRow);
+      } else {
+        const noC=sp({fontSize:'.78rem',color:'#9E9890'},'Не добавлен ни в один курс');
+        card2.appendChild(noC);
+      }
+
+      // Разделитель
+      const sep=dv({});sep.style.cssText='height:1px;background:#E8E3DA;margin:0 -.25rem';
+      card2.appendChild(sep);
+
+      // Кнопка написать
+      const foot=dv({});foot.style.cssText='display:flex;gap:.5rem;align-items:center';
+      if(prof.id!==t.id){
+        const msgBtnEl=document.createElement('button');
+        msgBtnEl.style.cssText=`flex:1;padding:8px 14px;border-radius:9px;border:1.5px solid #E8E3DA;background:#fff;color:${unrd?C.rd:'#6B6560'};font-size:.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .1s`;
+        msgBtnEl.innerHTML=`<span style="font-size:1rem">${unrd?'💬':'✉️'}</span>${unrd?`${unrd} новых сообщений`:'Написать'}`;
+        msgBtnEl.onmouseenter=()=>{msgBtnEl.style.background=C.blL;msgBtnEl.style.borderColor=C.blB;msgBtnEl.style.color=C.bl;};
+        msgBtnEl.onmouseleave=()=>{msgBtnEl.style.background='#fff';msgBtnEl.style.borderColor='#E8E3DA';msgBtnEl.style.color=unrd?C.rd:'#6B6560';};
+        msgBtnEl.onclick=()=>setS({nav:'msgs',msgTarget:t.id});
+        foot.appendChild(msgBtnEl);
+      }
+      card2.appendChild(foot);
+      grid.appendChild(card2);
     });
   }
-  if(!teachers.length){wrap.appendChild(empty('Нет преподавателей'));return wrap;}
-  renderList();return wrap;
+  renderList();
+  return wrap;
 }
 
 function pgMsgs(){
@@ -1930,7 +1997,8 @@ function pgTasks(){
         btn('Отмена',()=>m.remove(),{variant:'secondary'}),
         btn('Добавить',async()=>{if(!ttl.trim()){toast('Введите название','err');return;}
           const cid=isPersonal?null:selCid;
-          const{error}=await sb.from('tasks').insert({course_id:cid,title:ttl,deadline:ddl||null,priority:pri,status:'todo',created_by:S.prof.id,is_private:isPrivate});
+          const taskData={course_id:cid||null,title:ttl,deadline:ddl||null,priority:pri,status:'todo',created_by:S.prof.id,is_private:isPrivate};
+          const{error}=await sb.from('tasks').insert(taskData);
           if(error){toast('Ошибка: '+error.message,'err');return;}
           toast('Задача добавлена');m.remove();
           await loadCourses(S.prof);
@@ -3387,6 +3455,8 @@ window.addEventListener('beforeinstallprompt', e => {
     topbar.appendChild(btn);
   }, 3000);
 });
+
+
 
 
 
