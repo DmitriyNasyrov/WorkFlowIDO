@@ -221,13 +221,15 @@ async function loadProf(uid){
   return null;
 }
 async function signUp(email,pw,meta){
-  // Sanitize role — must be one of the allowed values
   const allowedRoles=['manager','teacher','student'];
   const safeRole=allowedRoles.includes(meta.role)?meta.role:'student';
   const safeMeta={...meta,role:safeRole};
   
   const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:safeMeta}});
   if(error||!data?.user)return{error:error||{message:'Ошибка регистрации'}};
+  
+  // Wait for trigger to fire, then ensure profile has correct role
+  await sleep(800);
   
   const pl={
     id:data.user.id,
@@ -239,17 +241,15 @@ async function signUp(email,pw,meta){
     phone:null
   };
   
-  // Try insert, then upsert as fallback
-  const{error:e2}=await sb.from('profiles').insert(pl);
+  // Try upsert — this handles both "trigger already created row" and "no row yet"
+  const{error:e2}=await sb.from('profiles').upsert(pl,{onConflict:'id'});
   if(e2){
-    console.log('Insert failed, trying upsert:', e2.message);
-    const{error:e2b}=await sb.from('profiles').upsert(pl,{onConflict:'id'});
-    if(e2b){console.error('Upsert also failed:', e2b.message);}
+    console.warn('Profile upsert failed:', e2.message);
+    // Try plain insert as fallback
+    await sb.from('profiles').insert(pl);
   }
   
-  // Small delay to let trigger fire
-  await sleep(500);
-  
+  await sleep(300);
   const{error:e3}=await sb.auth.signInWithPassword({email,password:pw});
   if(e3)return{error:e3};
   return{error:null};
@@ -878,8 +878,8 @@ function pgCourseDetail(){
 
 // ─── TAB: TEACHERS ────────────────────────────
 async function loadAssignments(courseId){
-  const{data}=await sb.from('assignments').select('*,submissions(*,students!submissions_student_id_fkey(id,full_name,email))').eq('course_id',courseId).order('created_at',{ascending:false});
-  return data||[];
+  const{data,error:laErr}=await sb.from('assignments').select('*,submissions(*,students!submissions_student_id_fkey(id,full_name,email))').eq('course_id',courseId).order('created_at',{ascending:false});
+  if(laErr){console.warn('assignments table error:',laErr.message);return[];}return data||[];
 }
 
 function tabTeachers(course,prof,allP,msgs,reload){
@@ -1720,7 +1720,7 @@ function pgTasks(){
   const tHdr=dv({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem'});
   tHdr.appendChild(hx(1,{margin:'0',fontSize:'1.4rem',fontWeight:'800',color:C.tx},'Все задачи'));
   const hdrRight=dv({display:'flex',gap:'.5rem',alignItems:'center'});
-  const privBtn=btn('🔒 Только мои',()=>{hidePrivate=!hidePrivate;privBtn.textContent=hidePrivate?'👁 Показать все':'🔒 Только мои';privBtn.style.background=hidePrivate?C.acL:C.surf;privBtn.style.color=hidePrivate?C.ac:C.txS;renderTasks();},{variant:'secondary',size:'sm'});
+  const privBtn=btn('🔒 Только мои',()=>{hidePrivate=!hidePrivate;privBtn.textContent=hidePrivate?'👁 Показать все':'🔒 Только мои';privBtn.style.background=hidePrivate?C.acL:C.surf;privBtn.style.color=hidePrivate?C.ac:C.txS;if(typeof buildList==='function')buildList();},{variant:'secondary',size:'sm'});
   hdrRight.appendChild(privBtn);
   tHdr.appendChild(hdrRight);
   hdrRight.appendChild(btn('Добавить задачу',()=>{
@@ -2360,7 +2360,7 @@ async function pgSAssignments(){
 
 // ─── MODAL: CREATE ASSIGNMENT ─────────────────────────────────
 function modalCreateAssignment(course,type,reload){
-  let title='',desc='',due='',maxScore=type==='test'?100:10;
+  let title='',desc='',due='',maxScore=type==='test'?100:10,attachUrl='';
   let questions=[{text:'',options:['','','',''],correct:0}];
 
   const qWrap=dv({});
@@ -2392,6 +2392,42 @@ function modalCreateAssignment(course,type,reload){
   const fields=[
     fld('Название',inp({placeholder:type==='test'?'Тест по теме 1':'Домашнее задание №1',onInput:v=>title=v})),
     fld('Описание / условие',tarea({placeholder:'Подробное описание задания...',onInput:v=>desc=v,rows:3})),
+    // ── File/Media attachment ──
+    (()=>{
+      const attWrap=dv({marginBottom:'.25rem'});
+      attWrap.appendChild(dv({fontSize:'.75rem',fontWeight:'700',color:C.txS,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'.5rem'},'Прикрепить материал (необязательно)'));
+      const attRow=dv({display:'flex',gap:'.5rem',flexWrap:'wrap'});
+      // URL input
+      const urlInp=inp({type:'url',placeholder:'Ссылка на файл, видео, презентацию...',value:attachUrl,onInput:v=>{attachUrl=v;}});
+      attRow.appendChild(dv({flex:'1',minWidth:'200px'},urlInp));
+      // File upload button
+      const fileInp=document.createElement('input');fileInp.type='file';
+      fileInp.accept='.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,video/*,image/*';
+      fileInp.style.display='none';document.body.appendChild(fileInp);
+      const uploadBtn=btn('📎 Файл',()=>fileInp.click(),{variant:'secondary',size:'sm'});
+      const uploadStatus=dv({fontSize:'.78rem',color:C.txS,marginTop:'.375rem',minHeight:'1.2em'});
+      fileInp.onchange=async()=>{
+        const file=fileInp.files[0];if(!file)return;
+        if(file.size>100*1024*1024){toast('Макс. 100MB','err');return;}
+        uploadStatus.textContent='Загрузка...';uploadStatus.style.color=C.ac;
+        const ext=file.name.split('.').pop();
+        const path=`assignments/${course.id}-${Date.now()}.${ext}`;
+        const{error:upErr}=await sb.storage.from('assignment-files').upload(path,file,{upsert:true});
+        if(upErr){
+          // Bucket may not exist yet — save filename as note
+          attachUrl='[Файл: '+file.name+']';
+          urlInp.value=attachUrl;
+          uploadStatus.textContent='⚠️ Хранилище не настроено. Используйте ссылку.';
+          uploadStatus.style.color=C.yw;return;
+        }
+        const{data:ud}=sb.storage.from('assignment-files').getPublicUrl(path);
+        attachUrl=ud.publicUrl;urlInp.value=attachUrl;
+        uploadStatus.textContent='✅ '+file.name+' загружен';uploadStatus.style.color=C.gr;
+      };
+      attRow.appendChild(uploadBtn);
+      attWrap.appendChild(attRow);attWrap.appendChild(uploadStatus);
+      return attWrap;
+    })(),
     dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},
       fld('Дедлайн',inp({type:'date',onInput:v=>due=v})),
       fld('Макс. балл',inp({type:'number',value:String(maxScore),onInput:v=>maxScore=Number(v)||10}))),
@@ -2405,7 +2441,7 @@ function modalCreateAssignment(course,type,reload){
     btn('Отмена',()=>m.remove(),{variant:'secondary'}),
     btn('Создать',async()=>{
       if(!title.trim()){toast('Введите название','err');return;}
-      const ins={course_id:course.id,type,title,description:desc||null,due_date:due||null,max_score:maxScore,created_by:S.prof.id};
+      const ins={course_id:course.id,type,title,description:desc||null,due_date:due||null,max_score:maxScore,created_by:S.prof.id,attach_url:attachUrl||null};
       if(type==='test') ins.questions=JSON.stringify(questions);
       const{error}=await sb.from('assignments').insert(ins);
       if(error){toast('Ошибка: '+error.message,'err');return;}
