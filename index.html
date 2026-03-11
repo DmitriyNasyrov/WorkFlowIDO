@@ -953,7 +953,15 @@ ${broadText}`,read:false}));
     activeTab=id;S.activeTab=id;Object.entries(tBtns).forEach(([v,b])=>{b.className='tab-btn'+(v===id?' on':'');b.querySelectorAll('svg').forEach(s=>{s.style.color=v===id?C.ac:C.txT;});});
     tabCont.innerHTML='';
     const cur=S.cd||course; // always use latest
-    const tabs={teachers:()=>tabTeachers(cur,prof,allP,msgs,reload),students:()=>tabStudents(cur,prof,reload),schedule:()=>tabSchedule(cur,prof,reload),materials:()=>tabMaterials(cur,prof,reload),tasks:()=>tabTasks(cur,prof,reload),assignments:async()=>{const aw=dv({});tabAssignments(cur,prof,reload).then(n=>{aw.appendChild(n);});return aw;}};
+    const tabs={teachers:()=>tabTeachers(cur,prof,allP,msgs,reload),students:()=>tabStudents(cur,prof,reload),schedule:()=>tabSchedule(cur,prof,reload),materials:()=>tabMaterials(cur,prof,reload),tasks:()=>tabTasks(cur,prof,reload)};
+    if(id==='assignments'){
+      const aw=dv({});
+      const loading=dv({padding:'2rem',textAlign:'center',color:C.txS,fontSize:'.85rem'},'Загрузка заданий...');
+      aw.appendChild(loading);
+      tabCont.appendChild(aw);
+      tabAssignments(cur,prof,reload).then(n=>{aw.innerHTML='';aw.appendChild(n);}).catch(err=>{aw.innerHTML='';aw.appendChild(dv({color:C.rd,padding:'1rem'},'Ошибка загрузки: '+err.message));});
+      return;
+    }
     const node=tabs[id]?tabs[id]():null;if(node)tabCont.appendChild(node);
   }
   TABS.forEach(t=>{const b=document.createElement('button');b.className='tab-btn'+(t.id===activeTab?' on':'');b.appendChild(ic(t.icon,14,t.id===activeTab?C.ac:C.txT));b.appendChild(tx(t.lbl));b.onclick=()=>showTab(t.id);tBtns[t.id]=b;tabBar.appendChild(b);});
