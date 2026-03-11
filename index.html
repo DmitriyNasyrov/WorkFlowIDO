@@ -176,6 +176,8 @@ td,th{word-break:break-word;overflow-wrap:anywhere}
 <script>
 
 
+
+
 // Global error boundary
 window.onerror = function(msg, src, line, col, err) {
   var app = document.getElementById('app');
@@ -366,8 +368,8 @@ function exportCSV(rows,filename){
   document.body.appendChild(a);a.click();document.body.removeChild(a);toast('Файл скачан');
 }
 function exportStudents(course){
-  const rows=[['ФИО','Email','Телефон','Организация','Паспорт','Диплом','Заявление','Договор','Оплата']];
-  (course.students||[]).forEach(s=>rows.push([s.full_name,s.email||'',s.phone||'',s.organization||'',s.has_passport?'Да':'',s.has_diploma?'Да':'',s.has_statement?'Да':'',s.has_contract?'Да':'',s.has_payment?'Да':'']));
+  const rows=[['ФИО','Email','Телефон','Организация','Паспорт','Диплом','Заявление','Договор']];
+  (course.students||[]).forEach(s=>rows.push([s.full_name,s.email||'',s.phone||'',s.organization||'',s.has_passport?'Да':'',s.has_diploma?'Да':'',s.has_statement?'Да':'',s.has_contract?'Да':'']));
   exportCSV(rows,(course.title||'course').replace(/\s+/g,'_')+'_слушатели.csv');
 }
 
@@ -935,7 +937,7 @@ ${broadText}`,read:false}));
     activeTab=id;S.activeTab=id;Object.entries(tBtns).forEach(([v,b])=>{b.className='tab-btn'+(v===id?' on':'');b.querySelectorAll('svg').forEach(s=>{s.style.color=v===id?C.ac:C.txT;});});
     tabCont.innerHTML='';
     const cur=S.cd||course; // always use latest
-    const tabs={teachers:()=>tabTeachers(cur,prof,allP,msgs,reload),students:()=>tabStudents(cur,prof,reload),schedule:()=>tabSchedule(cur,prof,reload),materials:()=>tabMaterials(cur,prof,reload),tasks:()=>tabTasks(cur,prof,reload),assignments:async()=>{const aw=dv({});tabAssignments(cur,prof,reload).then(n=>{aw.appendChild(n);});return aw;},finance:()=>tabFinance(cur)};
+    const tabs={teachers:()=>tabTeachers(cur,prof,allP,msgs,reload),students:()=>tabStudents(cur,prof,reload),schedule:()=>tabSchedule(cur,prof,reload),materials:()=>tabMaterials(cur,prof,reload),tasks:()=>tabTasks(cur,prof,reload),assignments:async()=>{const aw=dv({});tabAssignments(cur,prof,reload).then(n=>{aw.appendChild(n);});return aw;}};
     const node=tabs[id]?tabs[id]():null;if(node)tabCont.appendChild(node);
   }
   TABS.forEach(t=>{const b=document.createElement('button');b.className='tab-btn'+(t.id===activeTab?' on':'');b.appendChild(ic(t.icon,14,t.id===activeTab?C.ac:C.txT));b.appendChild(tx(t.lbl));b.onclick=()=>showTab(t.id);tBtns[t.id]=b;tabBar.appendChild(b);});
@@ -952,66 +954,63 @@ async function loadAssignments(courseId){
 }
 
 function tabTeachers(course,prof,allP,msgs,reload){
-  const wrap=dv({});const avail=allP.filter(p=>p.role==='teacher'&&!(course.course_teachers||[]).some(ct=>ct.teacher_id===p.id));
+  const wrap=dv({});
   const hdr=dv({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'});
-  hdr.appendChild(dv({}));
-  if(prof.role==='manager')hdr.appendChild(btn('Добавить',()=>{
-    let tid='',extName='',subj='',hrs='',rate='',dates='';
-    let useExternal=false;
-    // Mode toggle: registered vs external teacher
-    const modeRow=dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'.5rem',marginBottom:'1rem'});
-    const mkModeBtn=(lbl,ext)=>{const b=document.createElement('button');b.textContent=lbl;Object.assign(b.style,{padding:'.5rem',borderRadius:'8px',border:`1.5px solid ${(!ext&&!useExternal)||(ext&&useExternal)?C.ac:C.brd}`,background:(!ext&&!useExternal)||(ext&&useExternal)?C.acL:C.surf,color:(!ext&&!useExternal)||(ext&&useExternal)?C.ac:C.txS,fontWeight:'700',fontSize:'.82rem',cursor:'pointer'});b.onclick=()=>{useExternal=ext;rebuildForm();};return b;};
-    modeRow.appendChild(mkModeBtn('Из платформы',false));
-    modeRow.appendChild(mkModeBtn('Внешний преподаватель',true));
-    const formArea=dv({});
-    function rebuildForm(){
-      formArea.innerHTML='';
-      modeRow.querySelectorAll('button').forEach((b,i)=>{const match=(i===0&&!useExternal)||(i===1&&useExternal);b.style.border=`1.5px solid ${match?C.ac:C.brd}`;b.style.background=match?C.acL:C.surf;b.style.color=match?C.ac:C.txS;});
-      if(!useExternal){
-        formArea.appendChild(fld('Преподаватель',sel([['','Выбрать...'],...avail.map(t=>[t.id,t.full_name])],'',v=>{tid=v;const t=avail.find(x=>x.id===v);if(t&&!subj)subj=t.subject||'';})));
-      } else {
-        formArea.appendChild(fld('ФИО преподавателя *',inp({placeholder:'Иванова Елена Сергеевна',value:extName,onInput:v=>extName=v})));
-      }
-      formArea.appendChild(fld('Дисциплина',inp({placeholder:'Предмет',value:subj,onInput:v=>subj=v})));
-      formArea.appendChild(dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Часов',inp({type:'number',value:hrs,onInput:v=>hrs=v})),fld('Ставка ₽/ч',inp({type:'number',value:rate,onInput:v=>rate=v}))));
-      formArea.appendChild(fld('Даты занятий',inp({placeholder:'10.03, 20.03',value:dates,onInput:v=>dates=v})));
-    }
-    rebuildForm();
-    const m=modal('Добавить преподавателя',[modeRow,formArea,dv({display:'flex',justifyContent:'flex-end',gap:'.75rem'},btn('Отмена',()=>m.remove(),{variant:'secondary'}),btn('Добавить',async()=>{
-      if(useExternal){
-        if(!extName.trim()){toast('Введите ФИО преподавателя','err');return;}
-        // Insert external teacher as placeholder entry (no teacher_id, use ext_name field)
-        const{error}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:null,subject:subj,hours:+hrs||0,dates:dates||null,ext_name:extName.trim(),paid:false});
-        if(error){
-          // ext_name column may not exist yet — store in subject as fallback
-          const{error:e2}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:null,subject:(extName.trim()+(subj?' — '+subj:'')),hours:+hrs||0,rate:+rate||0,dates:dates||null,paid:false});
-          if(e2){toast('Ошибка: '+e2.message,'err');return;}
-        }
-        toast('Внешний преподаватель добавлен');m.remove();await reload();return;
-      }
-      if(!tid){toast('Выберите преподавателя','err');return;}const{error}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:tid,subject:subj,hours:+hrs||0,rate:+rate||0,dates,paid:false});if(error){toast('Ошибка: '+error.message,'err');return;}toast('Добавлено');m.remove();await reloadCourse();}))],()=>m.remove());document.body.appendChild(m);
-  },{variant:'primary',icon:'plus',size:'sm'}));
+  hdr.appendChild(hx(3,{margin:'0',fontSize:'1rem',fontWeight:'800',color:C.tx},'Преподаватели курса'));
+  if(prof.role==='manager'){
+    hdr.appendChild(btn('+ Добавить',()=>{
+      const getP=id=>allP.find(p=>p.id===id);
+      const teachers=allP.filter(p=>p.role==='teacher'&&!course.course_teachers?.some(ct=>ct.teacher_id===p.id));
+      if(!teachers.length){toast('Все преподаватели уже добавлены на курс','warn');return;}
+      let selId=teachers[0]?.id||'';
+      const m=modal('Добавить преподавателя',[
+        fld('Преподаватель',sel(teachers.map(t=>([t.id,t.full_name+(t.subject?' ('+t.subject+')':'')]))||[],selId,v=>selId=v)),
+        dv({display:'flex',justifyContent:'flex-end',gap:'.75rem'},
+          btn('Отмена',()=>m.remove(),{variant:'secondary'}),
+          btn('Добавить',async()=>{
+            if(!selId){toast('Выберите преподавателя','err');return;}
+            const{error}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:selId});
+            if(error){toast('Ошибка: '+error.message,'err');return;}
+            toast('✅ Преподаватель добавлен');m.remove();await reloadCourse();
+          },{variant:'primary'}))
+      ],()=>m.remove(),true);
+      document.body.appendChild(m);
+    },{variant:'primary',size:'sm'}));
+  }
   wrap.appendChild(hdr);
-  if(!(course.course_teachers||[]).length){wrap.appendChild(empty('Преподаватели не добавлены'));return wrap;}
-  course.course_teachers.forEach(ct=>{
-    const t=ct.profiles;const pay=(ct.hours||0)*(ct.rate||0);
+  const list=course.course_teachers||[];
+  if(!list.length){wrap.appendChild(empty('Преподаватели не назначены'));return wrap;}
+  list.forEach(ct=>{
+    const t=ct.profiles||allP.find(p=>p.id===ct.teacher_id)||{};
     const c2=card(null);c2.style.marginBottom='.75rem';
-    const row=dv({display:'flex',gap:'1rem',alignItems:'flex-start',flexWrap:'wrap'});row.appendChild(av(t?.avatar_text,C.bl,44));
-    const inf=dv({flex:'1'});const tr3=dv({display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'.5rem',marginBottom:'.4rem'});
-    const nc=dv({});nc.appendChild(dv({fontWeight:'700',color:C.tx,fontSize:'.9rem'},t?.full_name||'—'));nc.appendChild(dv({fontSize:'.78rem',color:C.txS},`${ct.subject||''} · ${t?.email||''}`));tr3.appendChild(nc);
-    const acts=dv({display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center'});
+    const row=dv({display:'flex',gap:'1rem',alignItems:'flex-start',flexWrap:'wrap'});
+    row.appendChild(av(t.avatar_text||ini(t.full_name),C.bl,44));
+    const inf=dv({flex:'1',minWidth:'200px'});
+    const tr3=dv({display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'.5rem',flexWrap:'wrap'});
+    const nameCol=dv({});
+    nameCol.appendChild(sp({fontWeight:'700',color:C.tx,display:'block'},t.full_name||'—'));
+    if(t.subject)nameCol.appendChild(sp({fontSize:'.78rem',color:C.txS,display:'block'},t.subject));
+    nameCol.appendChild(sp({fontSize:'.72rem',color:C.txT,display:'block'},t.email||''));
+    tr3.appendChild(nameCol);
     if(prof.role==='manager'){
-      acts.appendChild(btn('Написать',()=>{const m=chatModal(prof.id,ct.teacher_id,course.id,allP,msgs,()=>m.remove());document.body.appendChild(m);},{variant:'blue',size:'sm',icon:'msg'}));
-      acts.appendChild(btn(ct.paid?'✓ Оплачено':'Оплатить',async()=>{await sb.from('course_teachers').update({paid:!ct.paid}).eq('id',ct.id);await reloadCourse();},{variant:ct.paid?'secondary':'ghost',size:'sm'}));
-      acts.appendChild(ibtn('edit',()=>{
-        let nh=ct.hours,nr=ct.rate,ns=ct.subject||'',nd=ct.dates||'';
-        const m=modal('Редактировать',[fld('Дисциплина',inp({value:ns,onInput:v=>ns=v})),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Часов',inp({type:'number',value:String(nh||''),onInput:v=>nh=v})),fld('Ставка ₽/ч',inp({type:'number',value:String(nr||''),onInput:v=>nr=v}))),fld('Даты',inp({value:nd,onInput:v=>nd=v})),dv({display:'flex',justifyContent:'flex-end',gap:'.75rem'},btn('Отмена',()=>m.remove(),{variant:'secondary'}),btn('Сохранить',async()=>{await sb.from('course_teachers').update({subject:ns,hours:+nh||0,rate:+nr||0,dates:nd}).eq('id',ct.id);toast('Обновлено');m.remove();await reloadCourse();}))],()=>m.remove());document.body.appendChild(m);
-      },'Редактировать'));
-      acts.appendChild(ibtn('trash',async()=>{if(!confirm('Удалить преподавателя?'))return;await sb.from('course_teachers').delete().eq('id',ct.id);toast('Удалено');await reloadCourse();},'Удалить',C.rd));
+      const rgt=dv({display:'flex',gap:'.375rem'});
+      const unread=msgs.filter(m=>m.sender_id===t.id&&m.receiver_id===prof.id&&!m.read).length;
+      if(unread)rgt.appendChild(badge(`${unread} новых`,'red',true));
+      rgt.appendChild(btn(unread?'💬 '+unread:'💬 Написать',()=>setS({nav:'msgs',msgTarget:t.id}),{variant:'secondary',size:'sm'}));
+      rgt.appendChild(ibtn('trash',async()=>{
+        if(!confirm(`Удалить ${t.full_name} из курса?`))return;
+        await sb.from('course_teachers').delete().eq('id',ct.id);
+        toast('Удалено');await reloadCourse();
+      },'del'));
+      tr3.appendChild(rgt);
     }
-    tr3.appendChild(acts);inf.appendChild(tr3);
-    const st=dv({display:'flex',gap:'1.5rem',flexWrap:'wrap'});[['Часов',String(ct.hours||0)],['Ставка',(ct.rate||0).toLocaleString('ru-RU')+' ₽/ч'],['Итого',pay.toLocaleString('ru-RU')+' ₽',C.gr],['Даты',ct.dates||'—']].forEach(([l,v,col])=>{const s=dv({});s.appendChild(dv({fontSize:'.67rem',color:C.txT,fontWeight:'700',textTransform:'uppercase',letterSpacing:'.06em'},l));s.appendChild(dv({fontSize:'.85rem',fontWeight:'700',color:col||C.tx},v));st.appendChild(s);});inf.appendChild(st);row.appendChild(inf);c2.appendChild(row);wrap.appendChild(c2);
-  });return wrap;
+    inf.appendChild(tr3);
+    // Show lectures count
+    const lectCount=(course.lectures||[]).filter(l=>l.teacher_id===t.id).length;
+    if(lectCount)inf.appendChild(sp({fontSize:'.78rem',color:C.txT,marginTop:'.375rem',display:'block'},`Лекций на курсе: ${lectCount}`));
+    row.appendChild(inf);c2.appendChild(row);wrap.appendChild(c2);
+  });
+  return wrap;
 }
 
 // ─── TAB: STUDENTS ────────────────────────────
@@ -1408,7 +1407,7 @@ function tabTasks(course,prof,reload){prof=S.prof; // Always use fresh prof
 }
 
 // ─── TAB: FINANCE ─────────────────────────────
-function tabFinance(){return dv({});}
+
 
 // ═══════════════════════════════════════════════
 // CHAT MODAL
@@ -2075,7 +2074,7 @@ function pgTHome(){
       hrow.appendChild(hl);
       const mr=dv({display:'flex',gap:'.5rem',flexWrap:'wrap',alignItems:'center'});
       if(ct?.subject){const pill=dv({padding:'4px 10px',background:C.blL,borderRadius:'999px',fontSize:'.76rem',fontWeight:'700',color:C.bl});pill.textContent=ct.subject;mr.appendChild(pill);}
-      mr.appendChild(ct?.paid?badge('Оплата получена','green',true):badge('Ожидание оплаты','yellow',true));
+      
       hrow.appendChild(mr);body.appendChild(hrow);c2.appendChild(body);wrap.appendChild(c2);
     });
   }
@@ -2795,7 +2794,7 @@ function modalViewSubmissions(assignment,course,reload){
       const inf=dv({flex:'1',minWidth:'0'});
       const tr2=dv({display:'flex',justifyContent:'space-between',alignItems:'center',gap:'.5rem',flexWrap:'wrap'});
       tr2.appendChild(sp({fontWeight:'700',color:C.tx,fontSize:'.88rem',overflow:'hidden',textOverflow:'ellipsis'},st.full_name));
-      tr2.appendChild(sub?sub.grade!=null?badge(`${sub.grade}/${assignment.max_score||100}`,'green'):badge('Сдано','blue'):badge('Не сдано',''));
+      tr2.appendChild(sub?sub.grade!=null?badge(`${sub.grade}/${assignment.max_score||100}`,'green'):badge('Сдано','blue'):badge('Не сдано','def'));
       inf.appendChild(tr2);
       if(sub){
         if(sub.text_answer)inf.appendChild(sp({fontSize:'.8rem',color:C.txS,marginTop:'.25rem',display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'400px'},sub.text_answer));
@@ -3091,9 +3090,9 @@ async function pgSHW(){
       const tr=dv({display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'.25rem',flexWrap:'wrap'});
       tr.appendChild(sp({fontWeight:'700',color:C.tx,fontSize:'.95rem'},a.title));
       tr.appendChild(badge(a.type==='test'?'Тест':'Задание',a.type==='test'?'blue':'green',true));
-      if(a.type==='test'&&a.max_attempts>1)tr.appendChild(badge(`${a.max_attempts} попытки`,''));
-      if(a.type==='test'&&a.time_limit_minutes)tr.appendChild(badge(`⏱ ${a.time_limit_minutes} мин.`,''));
-      if(sub?.grade!=null) tr.appendChild(badge(`${sub.grade}/${a.max_score||'?'} б`,'amber',true));
+      if(a.type==='test'&&a.max_attempts>1)tr.appendChild(badge(`${a.max_attempts} попытки`,'def',true));
+      if(a.type==='test'&&a.time_limit_minutes)tr.appendChild(badge(`⏱ ${a.time_limit_minutes} мин.`,'def',true));
+      if(sub?.grade!=null) tr.appendChild(badge(`${sub.grade}/${a.max_score||'?'} б`,'accent',true));
       ti.appendChild(tr);
       if(a.description) ti.appendChild(sp({fontSize:'.82rem',color:C.txS,display:'block',marginBottom:'.25rem'},a.description.slice(0,100)+(a.description.length>100?'...':'')));
       const meta=dv({display:'flex',gap:'.75rem',flexWrap:'wrap'});
@@ -3388,6 +3387,8 @@ window.addEventListener('beforeinstallprompt', e => {
     topbar.appendChild(btn);
   }, 3000);
 });
+
+
 
 
 
