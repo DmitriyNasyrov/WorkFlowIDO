@@ -223,35 +223,36 @@ async function loadProf(uid){
 async function signUp(email,pw,meta){
   const allowedRoles=['manager','teacher','student'];
   const safeRole=allowedRoles.includes(meta.role)?meta.role:'student';
-  const safeMeta={...meta,role:safeRole};
 
-  const{data,error}=await sb.auth.signUp({email,password:pw,options:{data:safeMeta}});
+  // Step 1: Create auth user (triggers profile creation with possibly wrong role)
+  const{data,error}=await sb.auth.signUp({
+    email,password:pw,
+    options:{data:{...meta,role:safeRole}}
+  });
   if(error||!data?.user)return{error:error||{message:'Ошибка регистрации'}};
 
-  // Give Supabase trigger time to create profile row
-  await sleep(1200);
+  const uid=data.user.id;
 
-  // Upsert profile with correct role — overrides any bad trigger insert
-  const pl={
-    id:data.user.id,
-    full_name:safeMeta.full_name||email.split('@')[0],
-    email:email.toLowerCase().trim(),
-    role:safeRole,
-    avatar_text:ini(safeMeta.full_name||email),
-    subject:safeMeta.subject||null
-  };
+  // Step 2: Sign in immediately to get session for DB access
+  await sleep(600);
+  const{error:siErr}=await sb.auth.signInWithPassword({email,password:pw});
+  if(siErr)return{error:siErr};
 
-  // Try upsert first (handles existing row from trigger)
-  const{error:e2}=await sb.from('profiles').upsert(pl,{onConflict:'id'});
-  if(e2){
-    // If upsert fails due to constraint, try UPDATE only (trigger already inserted with wrong role)
-    const{error:e3}=await sb.from('profiles').update({role:safeRole,full_name:pl.full_name,avatar_text:pl.avatar_text,subject:pl.subject}).eq('id',data.user.id);
-    if(e3)console.warn('Profile role fix failed:',e3.message);
-  }
-
+  // Step 3: Force correct role via UPDATE (trigger may have set wrong value)
   await sleep(400);
-  const{error:e4}=await sb.auth.signInWithPassword({email,password:pw});
-  if(e4)return{error:e4};
+  const patch={
+    role:safeRole,
+    full_name:meta.full_name||email.split('@')[0],
+    email:email.toLowerCase().trim(),
+    avatar_text:ini(meta.full_name||email),
+    subject:meta.subject||null
+  };
+  // Try UPDATE first (row already exists from trigger)
+  const{error:ue}=await sb.from('profiles').update(patch).eq('id',uid);
+  if(ue){
+    // Row doesn't exist yet — insert it
+    await sb.from('profiles').insert({id:uid,...patch});
+  }
   return{error:null};
 }
 async function signIn(email,pw){const{error}=await sb.auth.signInWithPassword({email,password:pw});return error;}
@@ -859,7 +860,7 @@ function pgCourseDetail(){
   if(mgrs.length){const mgW=dv({});mgW.appendChild(dv({fontSize:'.7rem',color:C.txT,fontWeight:'700',textTransform:'uppercase',letterSpacing:'.05em',marginBottom:'6px'},'Менеджеры'));const mr=dv({display:'flex',gap:'.4rem',flexWrap:'wrap'});mgrs.forEach(m=>{const pill=dv({display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px 4px 6px',background:C.acL,border:`1px solid ${C.acB}`,borderRadius:'999px'});pill.appendChild(av(m.avatar_text,C.ac,22));pill.appendChild(sp({fontSize:'.75rem',fontWeight:'600',color:C.ac},(m.full_name||'').split(' ')[0]));mr.appendChild(pill);});mgW.appendChild(mr);hrow.appendChild(mgW);}
   hb.appendChild(hrow);hcard.appendChild(hb);wrap.appendChild(hcard);
   // Tabs
-  const ALL_TABS=[{id:'teachers',icon:'users',lbl:'Преподаватели'},{id:'students',icon:'grad',lbl:'Слушатели'},{id:'schedule',icon:'cal',lbl:'Расписание'},{id:'materials',icon:'video',lbl:'Материалы'},{id:'tasks',icon:'tasks',lbl:'Задачи'},{id:'assignments',icon:'doc',lbl:'Задания'},{id:'finance',icon:'money',lbl:'Финансы'}];
+  const ALL_TABS=[{id:'teachers',icon:'users',lbl:'Преподаватели'},{id:'students',icon:'grad',lbl:'Слушатели'},{id:'schedule',icon:'cal',lbl:'Расписание'},{id:'materials',icon:'video',lbl:'Материалы'},{id:'tasks',icon:'tasks',lbl:'Задачи'},{id:'assignments',icon:'doc',lbl:'Задания'},];
   // Tasks tab — managers only; teachers/students don't manage course tasks
   const isManager=prof.role==='manager';
   const isTeacher=prof.role==='teacher';
@@ -893,9 +894,8 @@ async function loadAssignments(courseId){
 
 function tabTeachers(course,prof,allP,msgs,reload){
   const wrap=dv({});const avail=allP.filter(p=>p.role==='teacher'&&!(course.course_teachers||[]).some(ct=>ct.teacher_id===p.id));
-  const total=(course.course_teachers||[]).reduce((s,t)=>s+(t.hours||0)*(t.rate||0),0);
   const hdr=dv({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'});
-  hdr.appendChild(dv({fontSize:'.875rem',color:C.txS},'Итого выплат: ',sp({color:C.gr,fontWeight:'700'},total.toLocaleString('ru-RU')+' ₽')));
+  hdr.appendChild(dv({}));
   if(prof.role==='manager')hdr.appendChild(btn('Добавить',()=>{
     let tid='',extName='',subj='',hrs='',rate='',dates='';
     let useExternal=false;
@@ -922,7 +922,7 @@ function tabTeachers(course,prof,allP,msgs,reload){
       if(useExternal){
         if(!extName.trim()){toast('Введите ФИО преподавателя','err');return;}
         // Insert external teacher as placeholder entry (no teacher_id, use ext_name field)
-        const{error}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:null,subject:subj,hours:+hrs||0,rate:+rate||0,dates:dates||null,ext_name:extName.trim(),paid:false});
+        const{error}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:null,subject:subj,hours:+hrs||0,dates:dates||null,ext_name:extName.trim(),paid:false});
         if(error){
           // ext_name column may not exist yet — store in subject as fallback
           const{error:e2}=await sb.from('course_teachers').insert({course_id:course.id,teacher_id:null,subject:(extName.trim()+(subj?' — '+subj:'')),hours:+hrs||0,rate:+rate||0,dates:dates||null,paid:false});
@@ -1048,7 +1048,7 @@ function tabStudents(course,prof,reload){
       fontSize:'.76rem',fontWeight:'700',cursor:prof.role==='manager'?'pointer':'default',position:'relative',userSelect:'none'});
     statusPill.appendChild(ic(allComplete?'check':'doc',12,allComplete?C.gr:missingDocs.length<=2?C.yw:C.rd));
     statusPill.appendChild(tx(allComplete?'Все документы':`Не хватает: ${missingDocs.length}`));
-    if(prof.role==='manager'&&!allComplete) statusPill.appendChild(ic('chevron',10,C.rd));
+    if(prof.role==='manager') statusPill.appendChild(ic('chevron',10,allComplete?C.gr:C.rd));
     
     if(prof.role==='manager'){
       // Dropdown for toggling individual docs
@@ -1069,7 +1069,34 @@ function tabStudents(course,prof,reload){
           if(!cur) item.appendChild(sp({marginLeft:'auto',fontSize:'.7rem',color:C.txT},'нет'));
           item.onmouseenter=()=>item.style.background=C.surfH;
           item.onmouseleave=()=>item.style.background='transparent';
-          item.onclick=async(e)=>{e.stopPropagation();
+          // Upload button for this doc
+          if(prof.role==='manager'){
+            const upBtn=document.createElement('button');
+            Object.assign(upBtn.style,{marginLeft:'auto',padding:'2px 8px',fontSize:'.7rem',background:C.blL,border:`1px solid ${C.blB}`,borderRadius:'6px',color:C.bl,cursor:'pointer',fontWeight:'600',flexShrink:'0'});
+            upBtn.textContent='📎';upBtn.title='Загрузить файл документа';
+            upBtn.onclick=async(e)=>{
+              e.stopPropagation();
+              const fi=document.createElement('input');fi.type='file';
+              fi.accept='.pdf,.doc,.docx,.jpg,.jpeg,.png';
+              fi.onchange=async()=>{
+                const file=fi.files[0];if(!file)return;
+                upBtn.textContent='⏳';
+                const path=`students/${s.id}/${k}-${Date.now()}.${file.name.split('.').pop()}`;
+                const{error:ue}=await sb.storage.from('student-docs').upload(path,file,{upsert:true});
+                if(ue){
+                  // Bucket not set up - still mark as received
+                  toast('Файл: '+file.name+' (хранилище не настроено — отмечено вручную)','warn');
+                } else {
+                  toast('📄 '+lbl+' загружен');
+                }
+                await sb.from('students').update({[k]:true}).eq('id',s.id);
+                dropdown.style.display='none';await reloadCourse();
+              };
+              fi.click();
+            };
+            item.appendChild(upBtn);
+          }
+          item.onclick=async(e)=>{if(e.target.tagName==='BUTTON')return;e.stopPropagation();
             await sb.from('students').update({[k]:!cur}).eq('id',s.id);
             dropdown.style.display='none';
             await reloadCourse();
@@ -1254,61 +1281,7 @@ function tabTasks(course,prof,reload){prof=S.prof; // Always use fresh prof
 }
 
 // ─── TAB: FINANCE ─────────────────────────────
-function tabFinance(course){
-  const pay=(course.course_teachers||[]).reduce((s,t)=>s+(t.hours||0)*(t.rate||0),0);
-  const paid2=(course.course_teachers||[]).filter(t=>t.paid).reduce((s,t)=>s+(t.hours||0)*(t.rate||0),0);
-  const income=(course.students?.length||0)*(course.cost||0);
-  const profit=income-pay;
-  const wrap=dv({});
-
-  // Stats grid
-  const st=document.createElement('div');st.className='grid-4';st.style.marginBottom='1.5rem';
-  [['Доход',income,C.gr],['Выплаты всего',pay,C.rd],['Оплачено',paid2,C.bl],['Прибыль',profit,profit>=0?C.gr:C.rd]].forEach(([l,v,col])=>{
-    const c2=card(null);c2.style.padding='1rem';
-    c2.appendChild(sp({fontSize:'.75rem',color:C.txS,fontWeight:'600',display:'block',marginBottom:'.25rem'},l));
-    c2.appendChild(sp({fontSize:'1.15rem',fontWeight:'800',color:col},v.toLocaleString('ru-RU')+' ₽'));
-    st.appendChild(c2);
-  });
-  wrap.appendChild(st);
-
-  // Export button
-  const expRow=dv({display:'flex',justifyContent:'flex-end',marginBottom:'1rem'});
-  expRow.appendChild(btn('Экспорт CSV',()=>exportFinance(course),{variant:'secondary',size:'sm',icon:'download'}));
-  wrap.appendChild(expRow);
-
-  if(!course.course_teachers?.length){wrap.appendChild(empty('Нет преподавателей'));return wrap;}
-
-  // Teacher payment cards (mobile-friendly, replaces table)
-  course.course_teachers.forEach(ct=>{
-    const c2=card(null);c2.style.marginBottom='.625rem';
-    const row=dv({display:'flex',gap:'1rem',alignItems:'flex-start',flexWrap:'wrap'});
-    row.appendChild(av(ini(ct.profiles?.full_name||'?'),C.bl,38));
-    const inf=dv({flex:'1',minWidth:'140px'});
-    inf.appendChild(sp({fontWeight:'700',color:C.tx,display:'block',fontSize:'.9rem'},ct.profiles?.full_name||'—'));
-    inf.appendChild(sp({fontSize:'.78rem',color:C.txS,display:'block',marginBottom:'.375rem'},ct.subject||'—'));
-    const nums=dv({display:'flex',gap:'1rem',flexWrap:'wrap'});
-    [{l:'Часов',v:ct.hours||0},{l:'Ставка',v:(ct.rate||0).toLocaleString('ru-RU')+' ₽'},{l:'Итого',v:((ct.hours||0)*(ct.rate||0)).toLocaleString('ru-RU')+' ₽'}].forEach(({l,v})=>{
-      const s=dv({fontSize:'.78rem'});
-      s.appendChild(sp({color:C.txS},l+': '));
-      s.appendChild(sp({fontWeight:'700',color:C.tx},String(v)));
-      nums.appendChild(s);
-    });
-    inf.appendChild(nums);
-    row.appendChild(inf);
-    const rgt=dv({display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'.5rem',flexShrink:'0'});
-    rgt.appendChild(ct.paid?badge('Оплачено','green'):badge('Ожидает','yellow'));
-    if(S.prof.role==='manager'){
-      rgt.appendChild(btn(ct.paid?'Отменить оплату':'Отметить оплату',async()=>{
-        await sb.from('course_teachers').update({paid:!ct.paid}).eq('id',ct.id);
-        await reloadCourse();
-      },{variant:ct.paid?'secondary':'green',size:'sm'}));
-    }
-    row.appendChild(rgt);
-    c2.appendChild(row);
-    wrap.appendChild(c2);
-  });
-  return wrap;
-}
+function tabFinance(){return dv({});}
 
 // ═══════════════════════════════════════════════
 // CHAT MODAL
@@ -2104,12 +2077,12 @@ function pgSDocs(){
 // CREATE/EDIT COURSE MODALS
 // ═══════════════════════════════════════════════
 function modalCreateCourse(prof,allP,onDone){
-  let title='',type='qualification',sd='',ed='',hrs='72',cost='',desc='',color=C.ac;let mgIds=[prof.id];
+  let title='',type='qualification',sd='',ed='',hrs='72',desc='',color=C.ac;let mgIds=[prof.id];
   const COLS=[C.ac,'#3B6FD4','#6B3FA0','#2D7D52','#B07A1A','#C0392B'];const mgrs=allP.filter(p=>p.role==='manager');
   const colRow=dv({display:'flex',gap:'6px',paddingTop:'2px'});const cBtns={};
   COLS.forEach(c2=>{const b=dv({width:'28px',height:'28px',borderRadius:'50%',background:c2,cursor:'pointer',border:c2===color?`3px solid ${C.tx}`:`2px solid transparent`,transition:'all .1s'});b.onclick=()=>{color=c2;Object.entries(cBtns).forEach(([k,bb])=>bb.style.border=k===c2?`3px solid ${C.tx}`:`2px solid transparent`);};cBtns[c2]=b;colRow.appendChild(b);});
   const mgRow=dv({display:'flex',gap:'8px',flexWrap:'wrap'});mgrs.forEach(m=>{const pill=dv({display:'flex',alignItems:'center',gap:'6px',padding:'5px 12px 5px 7px',borderRadius:'999px',border:`1px solid ${mgIds.includes(m.id)?C.acB:C.brd}`,background:mgIds.includes(m.id)?C.acL:C.bg,cursor:'pointer',transition:'all .1s'});pill.appendChild(av(m.avatar_text,C.ac,24));pill.appendChild(sp({fontSize:'.8rem',fontWeight:'600',color:mgIds.includes(m.id)?C.ac:C.txS},(m.full_name||'').split(' ')[0]));pill.onclick=()=>{mgIds=mgIds.includes(m.id)?mgIds.filter(x=>x!==m.id):[...mgIds,m.id];const sel=mgIds.includes(m.id);pill.style.border=`1px solid ${sel?C.acB:C.brd}`;pill.style.background=sel?C.acL:C.bg;pill.querySelector('span').style.color=sel?C.ac:C.txS;};mgRow.appendChild(pill);});
-  let desc2='';const m=modal('Создать новый курс',[fld('Название курса',inp({placeholder:'Управление проектами в образовании',onInput:v=>title=v})),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Тип курса',sel([['qualification','Повышение квалификации'],['retraining','Профессиональная переподготовка']],'qualification',v=>type=v)),fld('Цвет курса',colRow)),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Дата начала',inp({type:'date',onInput:v=>sd=v})),fld('Дата окончания',inp({type:'date',onInput:v=>ed=v}))),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Кол-во часов',inp({type:'number',value:'72',onInput:v=>hrs=v})),fld('Стоимость (₽)',inp({type:'number',onInput:v=>cost=v}))),fld('Менеджеры курса',mgRow),fld('Описание',tarea('',v=>desc2=v)),dv({display:'flex',justifyContent:'flex-end',gap:'.75rem',marginTop:'.5rem'},btn('Отмена',()=>m.remove(),{variant:'secondary'}),btn('Создать курс',async()=>{if(!title.trim()){toast('Введите название','err');return;}if(!sd||!ed){toast('Укажите даты','err');return;}const{data:course,error}=await sb.from('courses').insert({title,type,start_date:sd,end_date:ed,hours:+hrs||72,cost:+cost||0,color,description:desc2,created_by:prof.id}).select().single();if(error){toast('Ошибка: '+error.message,'err');return;}if(mgIds.length)await sb.from('course_managers').insert(mgIds.map(mid=>({course_id:course.id,manager_id:mid})));toast('Курс создан!');m.remove();onDone();},{variant:'primary',size:'lg'}))],()=>m.remove(),true);return m;
+  let desc2='';const m=modal('Создать новый курс',[fld('Название курса',inp({placeholder:'Управление проектами в образовании',onInput:v=>title=v})),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Тип курса',sel([['qualification','Повышение квалификации'],['retraining','Профессиональная переподготовка']],'qualification',v=>type=v)),fld('Цвет курса',colRow)),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Дата начала',inp({type:'date',onInput:v=>sd=v})),fld('Дата окончания',inp({type:'date',onInput:v=>ed=v}))),dv({display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'},fld('Кол-во часов',inp({type:'number',value:'72',onInput:v=>hrs=v})),fld('Стоимость (₽)',inp({type:'number',onInput:v=>cost=v}))),fld('Менеджеры курса',mgRow),fld('Описание',tarea('',v=>desc2=v)),dv({display:'flex',justifyContent:'flex-end',gap:'.75rem',marginTop:'.5rem'},btn('Отмена',()=>m.remove(),{variant:'secondary'}),btn('Создать курс',async()=>{if(!title.trim()){toast('Введите название','err');return;}if(!sd||!ed){toast('Укажите даты','err');return;}const{data:course,error}=await sb.from('courses').insert({title,type,start_date:sd,end_date:ed,hours:+hrs||72,color,description:desc2,created_by:prof.id}).select().single();if(error){toast('Ошибка: '+error.message,'err');return;}if(mgIds.length)await sb.from('course_managers').insert(mgIds.map(mid=>({course_id:course.id,manager_id:mid})));toast('Курс создан!');m.remove();onDone();},{variant:'primary',size:'lg'}))],()=>m.remove(),true);return m;
 }
 
 function modalEditCourse(course,onDone){
@@ -2203,20 +2176,22 @@ function pgTTasks(){
 // ─── LOAD ASSIGNMENTS FOR COURSE ──────────────────────────────
 
 // ─── TEACHER: TAB ASSIGNMENTS ─────────────────────────────────
-async function tabAssignments(course,prof,reload){
+async function tabAssignments(course,prof,reload,hideHeader=false){
   const wrap=dv({});
   const assignments=await loadAssignments(course.id);
 
   // Header
-  const hdr=dv({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem',flexWrap:'wrap',gap:'.75rem'});
-  hdr.appendChild(hx(3,{margin:'0',fontSize:'1rem',fontWeight:'800',color:C.tx},'Задания и тесты'));
-  if(prof.role==='manager'||prof.role==='teacher'){
-    const btnRow=dv({display:'flex',gap:'.5rem'});
-    btnRow.appendChild(btn('+ Задание',()=>modalCreateAssignment(course,'homework',reload),{variant:'secondary',size:'sm'}));
-    btnRow.appendChild(btn('+ Тест',()=>modalCreateAssignment(course,'test',reload),{variant:'primary',size:'sm'}));
-    hdr.appendChild(btnRow);
+  if(!hideHeader){
+    const hdr=dv({display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem',flexWrap:'wrap',gap:'.75rem'});
+    hdr.appendChild(hx(3,{margin:'0',fontSize:'1rem',fontWeight:'800',color:C.tx},'Задания и тесты'));
+    if(prof.role==='manager'||prof.role==='teacher'){
+      const btnRow=dv({display:'flex',gap:'.5rem'});
+      btnRow.appendChild(btn('+ Задание',()=>modalCreateAssignment(course,'homework',reload),{variant:'secondary',size:'sm'}));
+      btnRow.appendChild(btn('+ Тест',()=>modalCreateAssignment(course,'test',reload),{variant:'primary',size:'sm'}));
+      hdr.appendChild(btnRow);
+    }
+    wrap.appendChild(hdr);
   }
-  wrap.appendChild(hdr);
 
   if(!assignments.length){wrap.appendChild(empty('Нет заданий. Нажмите «+ Задание» или «+ Тест»'));return wrap;}
 
@@ -2381,14 +2356,20 @@ function modalCreateAssignment(course,type,reload){
       qCard.appendChild(sp({fontSize:'.76rem',fontWeight:'700',color:C.txT,display:'block',marginBottom:'.375rem'},`Вопрос ${qi+1}`));
       const qtInp=inp({value:q.text,placeholder:'Текст вопроса...',onInput:v=>{questions[qi].text=v;}});
       qCard.appendChild(fld('',qtInp));
+      qCard.appendChild(sp({fontSize:'.72rem',color:C.txT,display:'block',margin:'.5rem 0 .25rem'},'Отметьте правильный вариант ответа:'));
       q.options.forEach((opt,oi)=>{
         const oRow=dv({display:'flex',gap:'.5rem',alignItems:'center',marginTop:'.375rem'});
         const rb=document.createElement('input');rb.type='radio';rb.name=`q${qi}`;rb.checked=q.correct===oi;
-        rb.onchange=()=>{questions[qi].correct=oi;};
-        rb.style.cssText='width:16px;height:16px;accent-color:'+C.ac+';flex-shrink:0';
+        rb.onchange=()=>{questions[qi].correct=oi;// Update green highlight
+          oRow.parentNode.querySelectorAll('.opt-row').forEach((r,i2)=>{r.style.background=i2===oi?'#EDFAF3':'transparent';r.style.borderRadius='6px';});};
+        rb.style.cssText='width:16px;height:16px;accent-color:'+C.ac+';flex-shrink:0;cursor:pointer';
+        oRow.classList.add('opt-row');
+        if(q.correct===oi)oRow.style.cssText='background:#EDFAF3;border-radius:6px';
         oRow.appendChild(rb);
         const oi2=inp({value:opt,placeholder:`Вариант ${oi+1}`,onInput:v=>{questions[qi].options[oi]=v;}});
+        oi2.style.background='transparent';
         oRow.appendChild(oi2);
+        if(q.correct===oi)oRow.appendChild(sp({fontSize:'.72rem',color:'#2D7D52',fontWeight:'700',flexShrink:'0'},'✓ верный'));
         qCard.appendChild(oRow);
       });
       if(questions.length>1) qCard.appendChild(dv({display:'flex',justifyContent:'flex-end',marginTop:'.5rem'},
@@ -2658,7 +2639,7 @@ async function pgTHW(){
     if(!assignments.length){
       sec.appendChild(dv({color:C.txT,fontSize:'.84rem',padding:'.75rem',background:C.surf,borderRadius:'10px',border:`1px solid ${C.brd}`},'Нет заданий'));
     } else {
-      const aNode=await tabAssignments(course,prof,()=>render());
+      const aNode=await tabAssignments(course,prof,()=>render(),true);
       sec.appendChild(aNode);
     }
     wrap.appendChild(sec);
