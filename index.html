@@ -323,9 +323,12 @@ tbody tr:hover { background: var(--surface-2); }
     <div class="card">
       <div class="card-head">
         <h3 class="card-title">Слушатели курса</h3>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="downloadExcelTemplate()" title="Скачать пустой шаблон Excel с правильными столбцами">
+            ⬇ Скачать шаблон
+          </button>
           <label class="btn btn-ghost btn-sm" style="cursor: pointer;">
-            📊 Из Excel
+            📊 Загрузить Excel
             <input type="file" id="excel-students" accept=".xlsx,.xls,.csv" style="display: none;" onchange="importStudentsFromExcel(event)">
           </label>
           <button class="btn btn-primary btn-sm" onclick="openAddEnrollment()">＋ Добавить</button>
@@ -1110,6 +1113,154 @@ async function deleteEnrollment() {
   await loadAll();
 }
 
+// ═════════════════════════════════════════════════════════════
+// СКАЧИВАНИЕ ШАБЛОНА EXCEL для импорта слушателей
+// ═════════════════════════════════════════════════════════════
+const ENROLL_COLUMNS = [
+  'Фамилия (по паспорту)',
+  'Имя (по паспорту)',
+  'Отчество (по паспорту)',
+  'Возраст',
+  'Пол',
+  'Дата рождения (по паспорту) (формат: 00.00.0000)',
+  'Гражданство',
+  'Регион проживания (Край, Республика, область, район)',
+  'Населенный пункт (город, село, пгт и т.д.)',
+  'Телефон мобильный (личный, актуальный)',
+  'Адрес электронной почты (личный, актуальный)',
+  'СНИЛС (формат: 000-000-000 00)',
+  'ИНН',
+  'Уровень образования',
+  'Диплом об образовании',
+  'Серия указанная в дипломе/справке об обучении',
+  'Номер диплома/справки об обучении',
+  'Регистрационный номер диплома/справки',
+  'Дата выдачи диплома/справки (формат: 00.00.0000)',
+  'Фамилия, указанная в дипломе/справке об обучении',
+  'Имя, указанное в дипломе/справке об обучении',
+  'Отчество, указанное в дипломе/справке об обучении',
+  'Место работы (в случае отсутствия указать: БЕЗРАБОТНЫЙ)',
+  'Должность'
+];
+
+function downloadExcelTemplate() {
+  const sampleRow = [
+    'Иванов', 'Иван', 'Иванович',
+    '35', 'Муж', '15.05.1990',
+    'РФ', 'Республика Татарстан', 'г. Казань',
+    '+7 (999) 123-45-67', 'ivanov@mail.ru',
+    '123-456-789 00', '160000000000',
+    'Высшее', 'Диплом о ВО',
+    '101824', '0123456', 'РН-2015/123', '30.06.2015',
+    'Иванов', 'Иван', 'Иванович',
+    'МБОУ Школа № 1', 'Учитель физкультуры'
+  ];
+  const data = [ENROLL_COLUMNS, sampleRow];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  // Ширина столбцов
+  ws['!cols'] = ENROLL_COLUMNS.map(h => ({ wch: Math.max(20, Math.min(40, h.length + 2)) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Слушатели');
+  const filename = `Шаблон_слушателей_${currentCourse?.name?.slice(0, 30) || 'курса'}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
+// ═════════════════════════════════════════════════════════════
+// СКЛОНЕНИЕ ФИО (морфология)
+// ═════════════════════════════════════════════════════════════
+function isFemale(patronymic) {
+  if (!patronymic) return null;
+  const p = patronymic.toLowerCase();
+  if (/(овна|евна|ична|инична)$/.test(p)) return true;
+  if (/(ович|евич|ьич|ич)$/.test(p)) return false;
+  return null;
+}
+
+function declineMaleSurname(s) {
+  if (/(ой|ый|ий)$/.test(s)) return [s.slice(0,-2)+'ого', s.slice(0,-2)+'ому'];
+  if (/(ский|цкий)$/.test(s)) return [s.slice(0,-2)+'ого', s.slice(0,-2)+'ому'];
+  if (/(ов|ев|ёв|ин|ын)$/.test(s)) return [s+'а', s+'у'];
+  if (/(ко|енко|о|е|и|ы|у|ю|их|ых|аго|яго)$/.test(s)) return [s, s];
+  if (/[бвгджзклмнпрстфхцчшщ]$/.test(s)) return [s+'а', s+'у'];
+  if (s.endsWith('ь')) return [s.slice(0,-1)+'я', s.slice(0,-1)+'ю'];
+  return [s, s];
+}
+
+function declineFemaleSurname(s) {
+  if (/(ова|ева|ёва|ина|ына)$/.test(s)) return [s.slice(0,-1)+'ой', s.slice(0,-1)+'ой'];
+  if (/(ская|цкая)$/.test(s)) return [s.slice(0,-2)+'ой', s.slice(0,-2)+'ой'];
+  if (s.endsWith('ая')) return [s.slice(0,-2)+'ой', s.slice(0,-2)+'ой'];
+  if (/(ко|енко|о|е|и|ы|у|ю)$/.test(s)) return [s, s];
+  if (/[бвгджзклмнпрстфхцчшщ]$/.test(s)) return [s, s];
+  return [s, s];
+}
+
+function declineMaleFirstName(n) {
+  if (n.endsWith('й')) return [n.slice(0,-1)+'я', n.slice(0,-1)+'ю'];
+  if (n.endsWith('а')) return [n.slice(0,-1)+'ы', n.slice(0,-1)+'е'];
+  if (n.endsWith('я')) return [n.slice(0,-1)+'и', n.slice(0,-1)+'е'];
+  if (n.endsWith('ь')) return [n.slice(0,-1)+'я', n.slice(0,-1)+'ю'];
+  if (/[бвгджзклмнпрстфхцчшщ]$/.test(n)) return [n+'а', n+'у'];
+  return [n, n];
+}
+
+function declineFemaleFirstName(n) {
+  if (n.endsWith('я')) return [n.slice(0,-1)+'и', n.slice(0,-1)+'и'];
+  if (n.endsWith('а')) return [n.slice(0,-1)+'ы', n.slice(0,-1)+'е'];
+  if (n.endsWith('ь')) return [n.slice(0,-1)+'и', n.slice(0,-1)+'и'];
+  return [n, n];
+}
+
+function declinePatronymic(p, female) {
+  if (female) {
+    if (/(овна|евна|ична|инична)$/.test(p)) return [p.slice(0,-1)+'ы', p.slice(0,-1)+'е'];
+  } else {
+    if (/(ович|евич|ич)$/.test(p)) return [p+'а', p+'у'];
+  }
+  return [p, p];
+}
+
+function declineFullName(surname, firstName, patronymic) {
+  if (!surname || !firstName) return ['', ''];
+  let female = isFemale(patronymic);
+  if (female === null) {
+    if (/(а|я)$/.test(firstName) && !['Никита','Илья','Кузьма','Фома','Лука'].includes(firstName)) female = true;
+    else female = false;
+  }
+  const [snGen, snDat] = female ? declineFemaleSurname(surname) : declineMaleSurname(surname);
+  const [fnGen, fnDat] = female ? declineFemaleFirstName(firstName) : declineMaleFirstName(firstName);
+  const [pnGen, pnDat] = patronymic ? declinePatronymic(patronymic, female) : ['', ''];
+  return [
+    [snGen, fnGen, pnGen].filter(Boolean).join(' '),
+    [snDat, fnDat, pnDat].filter(Boolean).join(' ')
+  ];
+}
+
+// Парсинг даты из строки (поддерживает 17.08.1976, 1976-08-17, ISO)
+function parseDate(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  // ДД.ММ.ГГГГ
+  let m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  // ГГГГ-ММ-ДД
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // Excel serial number
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 25000 && num < 80000) {
+    const d = new Date((num - 25569) * 86400 * 1000);
+    return d.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
+// ═════════════════════════════════════════════════════════════
+// ИМПОРТ слушателей из Excel
+// ═════════════════════════════════════════════════════════════
 function importStudentsFromExcel(event) {
   const file = event.target.files[0];
   if (!file || !currentCourse) return;
@@ -1118,34 +1269,92 @@ function importStudentsFromExcel(event) {
     try {
       const wb = XLSX.read(ev.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { raw: false });
+      const rows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+
+      // Подсказчики для разных написаний столбцов
+      const get = (row, ...keys) => {
+        for (const k of keys) {
+          for (const key in row) {
+            if (key.toLowerCase().includes(k.toLowerCase())) {
+              const v = row[key];
+              if (v != null && String(v).trim()) return String(v).trim();
+            }
+          }
+        }
+        return '';
+      };
 
       const toInsert = [];
+      const errors = [];
+
       for (const row of rows) {
-        const name = row['ФИО'] || row['фио'] || row['Фио'] || Object.values(row)[0] || '';
-        if (!name.trim()) continue;
+        const surname = get(row, 'фамилия (по паспорту)', 'фамилия');
+        const firstName = get(row, 'имя (по паспорту)', 'имя');
+        const patronymic = get(row, 'отчество (по паспорту)', 'отчество');
+
+        if (!surname && !firstName) continue; // пустая строка
+        if (!surname || !firstName) {
+          errors.push(`Строка с неполным ФИО пропущена: ${surname} ${firstName} ${patronymic}`);
+          continue;
+        }
+
+        // Полное ФИО
+        const fullName = [surname, firstName, patronymic].filter(Boolean).join(' ');
+        const [fullGen, fullDat] = declineFullName(surname, firstName, patronymic);
+
         toInsert.push({
           course_id: currentCourse.id,
-          full_name: name.trim(),
-          organization: row['ОРГАНИЗАЦИЯ'] || row['Организация'] || null,
-          position: row['ДОЛЖНОСТЬ'] || row['Должность'] || null,
-          email: row['EMAIL'] || row['Email'] || row['email'] || null,
-          phone: row['ТЕЛЕФОН'] || row['Телефон'] || null,
-          city: row['ГОРОД'] || row['Город'] || null,
+          full_name: fullName,
+          full_name_gen: fullGen,
+          full_name_dat: fullDat,
+          surname,
+          first_name: firstName,
+          patronymic: patronymic || null,
+          age: get(row, 'возраст') || null,
+          gender: get(row, 'пол') || null,
+          birthday: parseDate(get(row, 'дата рождения')),
+          citizenship: get(row, 'гражданство') || null,
+          region: get(row, 'регион проживания', 'регион') || null,
+          city: get(row, 'населенный пункт', 'населённый пункт', 'город') || null,
+          phone: get(row, 'телефон мобильный', 'телефон') || null,
+          email: get(row, 'адрес электронной почты', 'электронной почты', 'email', 'e-mail') || null,
+          snils: get(row, 'снилс') || null,
+          inn: get(row, 'инн') || null,
+          education_level: get(row, 'уровень образования') || null,
+          diploma_type: get(row, 'диплом об образовании') || null,
+          diploma_series: get(row, 'серия', 'серия указанная') || null,
+          diploma_number_orig: get(row, 'номер диплома', 'номер диплома/справки') || null,
+          diploma_reg_number: get(row, 'регистрационный номер') || null,
+          diploma_date: parseDate(get(row, 'дата выдачи диплома', 'дата выдачи')),
+          diploma_surname: get(row, 'фамилия, указанная в дипломе', 'фамилия в дипломе') || null,
+          diploma_first_name: get(row, 'имя, указанное в дипломе', 'имя в дипломе') || null,
+          diploma_patronymic: get(row, 'отчество, указанное в дипломе', 'отчество в дипломе') || null,
+          organization: get(row, 'место работы') || null,
+          position: get(row, 'должность') || null,
           contract_amount: currentCourse.price || null,
         });
       }
 
-      if (!toInsert.length) { alert('В файле не найдено ФИО'); return; }
-      if (!confirm(`Будет добавлено ${toInsert.length} слушателей. Продолжить?`)) return;
+      if (!toInsert.length) {
+        alert('В файле не найдено корректных строк с ФИО.\n\nУбедитесь что используете правильный шаблон — нажмите "Скачать шаблон" чтобы получить образец.');
+        return;
+      }
+
+      let confirmMsg = `Будет добавлено ${toInsert.length} слушателей.`;
+      if (errors.length) confirmMsg += `\n\nПропущено ${errors.length} некорректных строк.`;
+      confirmMsg += '\n\nПродолжить?';
+      if (!confirm(confirmMsg)) return;
 
       const { error } = await sb.from('course_enrollments').insert(toInsert);
       if (error) throw error;
       event.target.value = '';
       await loadCourseTabs();
       await loadAll();
-      alert(`✅ Добавлено ${toInsert.length} слушателей`);
-    } catch (e) { alert('Ошибка импорта: ' + e.message); }
+      alert(`✅ Добавлено ${toInsert.length} слушателей с автоматическим склонением ФИО`);
+    } catch (e) {
+      alert('Ошибка импорта: ' + e.message);
+      console.error(e);
+    }
   };
   r.readAsArrayBuffer(file);
 }
