@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ИДО.Платформа</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, [data-theme="light"] {
+  --bg: #FAFBFC; --surface: #FFFFFF; --surface-2: #F7F9FC;
+  --border: #E4E7EC; --border-strong: #D0D5DD;
+  --text: #1A1D23; --text-mut: #64748B;
+  --primary: #14387F; --primary-hov: #0F2B63; --primary-soft: #E8EEF9;
+  --accent: #16A34A;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+}
+[data-theme="dark"] {
+  --bg: #0A0B0D; --surface: #16181D; --surface-2: #1C1F26;
+  --border: #2A2D35; --border-strong: #3A3D45;
+  --text: #E4E7EC; --text-mut: #8B92A0;
+  --primary: #4F7DCC; --primary-hov: #6890DD; --primary-soft: rgba(79,125,204,0.12);
+  --accent: #22C55E;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font: 400 14px/1.55 'Inter', -apple-system, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px;
+}
+.wrap { width: 100%; max-width: 760px; }
+.brand {
+  display: flex; align-items: center; gap: 14px;
+  font-weight: 800; font-size: 28px; letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+.brand-icon {
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-hov));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 22px;
+}
+.sub { color: var(--text-mut); font-size: 15px; margin-bottom: 36px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 22px;
+  transition: all 0.2s ease; cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+.card-icon { font-size: 28px; margin-bottom: 12px; }
+.card-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; letter-spacing: -0.01em; }
+.card-desc { color: var(--text-mut); font-size: 13px; line-height: 1.5; }
+.theme-toggle {
+  position: fixed; top: 20px; right: 20px;
+  width: 36px; height: 36px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-mut); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.footer {
+  margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border);
+  color: var(--text-mut); font-size: 12.5px; line-height: 1.6;
+}
+.footer a { color: var(--primary); text-decoration: none; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">🌙</button>
+
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-icon">📋</div>
+    ИДО.Платформа
+  </div>
+  <div class="sub">Управление курсами повышения квалификации и переподготовки</div>
+
+  <div class="grid">
+    <a class="card" href="ido-platforma-step-a.html">
+      <div class="card-icon">👥</div>
+      <div class="card-title">Справочник людей</div>
+      <div class="card-desc">Подписанты, преподаватели, специалисты ГПХ со склонениями ФИО и заменами на отпуск</div>
+    </a>
+
+    <a class="card" href="ido-platforma-step-c.html">
+      <div class="card-icon">📚</div>
+      <div class="card-title">Курсы</div>
+      <div class="card-desc">Карточки курсов со слушателями, специалистами и составом комиссии ИАК</div>
+    </a>
+
+    <a class="card" href="ido-platforma-step-d.html">
+      <div class="card-icon">📄</div>
+      <div class="card-title">Документы</div>
+      <div class="card-desc">Генерация всех приказов, договоров и актов одним кликом с предпросмотром</div>
+    </a>
+  </div>
+
+  <div class="footer">
+    Поволжский ГУФКСиТ · Институт дополнительного образования<br>
+    База данных: Supabase · подключается через справочник людей
+  </div>
+</div>
+
+<script>
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('ido-theme', t);
+}
+function toggleTheme() {
+  applyTheme((document.documentElement.dataset.theme || 'light') === 'light' ? 'dark' : 'light');
+}
+applyTheme(localStorage.getItem('ido-theme') || 'light');
+</script>
+</body>
+</html>
