@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ИДО.Платформа · Документы</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<style>
+:root, [data-theme="light"] {
+  --bg: #FAFBFC; --surface: #FFFFFF; --surface-2: #F7F9FC;
+  --border: #E4E7EC; --border-strong: #D0D5DD;
+  --text: #1A1D23; --text-mut: #64748B;
+  --primary: #14387F; --primary-hov: #0F2B63; --primary-soft: #E8EEF9;
+  --accent: #16A34A; --accent-soft: rgba(22,163,74,0.1);
+  --danger: #DC2626; --danger-soft: #FEF2F2;
+  --warning: #D97706; --warning-soft: #FFFBEB;
+  --info: #2563EB; --info-soft: #EFF6FF;
+  --ring: rgba(20,56,127,0.12);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+[data-theme="dark"] {
+  --bg: #0A0B0D; --surface: #16181D; --surface-2: #1C1F26;
+  --border: #2A2D35; --border-strong: #3A3D45;
+  --text: #E4E7EC; --text-mut: #8B92A0;
+  --primary: #4F7DCC; --primary-hov: #6890DD; --primary-soft: rgba(79,125,204,0.12);
+  --accent: #22C55E; --accent-soft: rgba(34,197,94,0.12);
+  --danger: #EF4444; --danger-soft: rgba(239,68,68,0.1);
+  --warning: #F59E0B; --warning-soft: rgba(245,158,11,0.1);
+  --info: #3B82F6; --info-soft: rgba(59,130,246,0.1);
+  --ring: rgba(79,125,204,0.25);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 400 14px/1.55 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; letter-spacing: -0.01em; }
+
+.hdr { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+.hdr-inner { max-width: 1280px; margin: 0 auto; padding: 0 28px; height: 56px; display: flex; align-items: center; gap: 28px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; letter-spacing: -0.02em; white-space: nowrap; }
+.brand-icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--primary), var(--primary-hov)); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+.brand-sub { opacity: 0.55; font-weight: 400; font-size: 11.5px; }
+.nav { display: flex; gap: 2px; }
+.nav-item { padding: 7px 13px; font: 500 13px 'Inter'; color: var(--text-mut); background: none; border: none; border-radius: 7px; cursor: pointer; transition: all 0.15s; }
+.nav-item:hover { color: var(--text); background: var(--surface-2); }
+.nav-item.act { color: var(--text); background: var(--surface-2); }
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.db-pill { display: flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11.5px; font-weight: 500; border-radius: 99px; background: var(--surface-2); color: var(--text-mut); }
+.db-pill.on { color: var(--accent); }
+.db-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.theme-toggle { width: 32px; height: 32px; background: none; border: none; border-radius: 7px; color: var(--text-mut); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.theme-toggle:hover { background: var(--surface-2); color: var(--text); }
+
+.main { max-width: 1280px; margin: 0 auto; padding: 28px; }
+.page-head { margin-bottom: 22px; }
+.page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; }
+.page-sub { color: var(--text-mut); margin-top: 4px; font-size: 13.5px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font: 500 13.5px 'Inter'; border-radius: 7px; border: 1px solid transparent; cursor: pointer; transition: all 0.15s; user-select: none; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hov); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.btn-ghost:hover { background: var(--surface-2); }
+.btn-success { background: var(--accent); color: #fff; }
+.btn-success:hover { filter: brightness(1.05); }
+.btn-sm { padding: 5px 11px; font-size: 12.5px; }
+.btn-lg { padding: 11px 22px; font-size: 14.5px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-sm); }
+.card-pad { padding: 22px; }
+.card-head { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-title { font-size: 14.5px; font-weight: 600; }
+
+.section { margin-bottom: 22px; }
+.section-title { font-size: 12.5px; font-weight: 600; color: var(--text-mut); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 10px; }
+
+/* Селектор курса */
+.subtabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--border); }
+.subtab { padding: 10px 18px; font: 500 14px 'Inter'; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-mut); cursor: pointer; transition: all 0.15s; margin-bottom: -1px; }
+.subtab:hover { color: var(--text); }
+.subtab.act { color: var(--primary); border-color: var(--primary); }
+.subtab-badge { display: inline-block; padding: 1px 7px; font-size: 11px; font-weight: 600; border-radius: 99px; background: var(--surface-2); color: var(--text-mut); margin-left: 4px; }
+.subtab.act .subtab-badge { background: var(--primary-soft); color: var(--primary); }
+code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+.tmpl-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.tmpl-row:last-child { border-bottom: none; }
+.tmpl-icon { font-size: 20px; }
+.tmpl-info { flex: 1; min-width: 0; }
+.tmpl-name { font-weight: 500; font-size: 13.5px; }
+.tmpl-meta { font-size: 12px; color: var(--text-mut); margin-top: 2px; }
+.tmpl-status { padding: 3px 10px; font-size: 11px; font-weight: 600; border-radius: 99px; }
+.tmpl-ok { background: var(--accent-soft); color: var(--accent); }
+.tmpl-missing { background: var(--danger-soft); color: var(--danger); }
+.course-select-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin-bottom: 22px; }
+.course-select-card label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-mut); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px; }
+.sel-big { width: 100%; padding: 12px 14px; font: 15px 'Inter'; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; }
+.sel-big:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+
+/* Карточка статистики */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.stat-label { font-size: 11.5px; font-weight: 600; color: var(--text-mut); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
+.stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.stat-sub { font-size: 12px; color: var(--text-mut); margin-top: 2px; }
+
+/* Чекбоксы документов */
+.doc-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 768px) { .doc-list { grid-template-columns: 1fr; } }
+.doc-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.15s; background: var(--surface); }
+.doc-row:hover { border-color: var(--primary); background: var(--primary-soft); }
+.doc-row.checked { border-color: var(--primary); background: var(--primary-soft); }
+.doc-row.disabled { opacity: 0.4; cursor: not-allowed; }
+.doc-row.disabled:hover { border-color: var(--border); background: var(--surface); }
+.doc-check { width: 18px; height: 18px; border: 2px solid var(--border-strong); border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+.doc-row.checked .doc-check { background: var(--primary); border-color: var(--primary); color: #fff; }
+.doc-info { flex: 1; min-width: 0; }
+.doc-name { font-size: 13.5px; font-weight: 500; margin-bottom: 2px; }
+.doc-meta { font-size: 11.5px; color: var(--text-mut); }
+.doc-count { display: inline-block; padding: 2px 7px; font-size: 11px; font-weight: 600; border-radius: 99px; background: var(--surface-2); color: var(--text-mut); }
+.doc-row.checked .doc-count { background: var(--primary); color: #fff; }
+
+/* Сводка */
+.summary { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin: 16px 0; font-size: 13.5px; }
+.summary b { color: var(--primary); font-weight: 600; }
+
+/* Действия */
+.action-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* Лог */
+.log { max-height: 280px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font: 12px/1.6 'SF Mono', monospace; color: var(--text-mut); margin-top: 14px; display: none; }
+.log.show { display: block; }
+.log .ok { color: var(--accent); }
+.log .err { color: var(--danger); }
+.log .warn { color: var(--warning); }
+.log .info { color: var(--info); }
+
+/* Прогресс */
+.prog-bar { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.prog-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+
+/* Empty */
+.empty { text-align: center; padding: 60px 20px; color: var(--text-mut); }
+.empty-icon { font-size: 40px; opacity: 0.4; margin-bottom: 12px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+
+/* Alert */
+.alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; display: flex; gap: 10px; align-items: flex-start; }
+.alert-icon { font-size: 16px; line-height: 1; }
+.alert-info { background: var(--info-soft); color: var(--info); }
+.alert-warn { background: var(--warning-soft); color: var(--warning); }
+.alert-error { background: var(--danger-soft); color: var(--danger); }
+.alert-ok { background: var(--accent-soft); color: var(--accent); }
+
+/* Modal */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
+.overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-lg); width: 100%; max-width: 560px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-head { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 16px; font-weight: 600; }
+.modal-close { width: 28px; height: 28px; background: none; border: none; color: var(--text-mut); border-radius: 6px; cursor: pointer; font-size: 18px; }
+.modal-close:hover { background: var(--surface-2); color: var(--text); }
+.modal-body { padding: 22px 24px; overflow-y: auto; flex: 1; }
+.modal-foot { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+.fld { margin-bottom: 14px; }
+.fld label { display: block; font-size: 11.5px; font-weight: 600; color: var(--text-mut); margin-bottom: 5px; letter-spacing: 0.02em; }
+.inp { width: 100%; padding: 8px 11px; font: 14px 'Inter'; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 7px; outline: none; }
+.inp:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.reveal { animation: reveal 0.25s ease; }
+@keyframes reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="brand">
+      <div class="brand-icon">📋</div>
+      ИДО.Платформа
+      <span class="brand-sub">/ Документы</span>
+    </div>
+    <nav class="nav">
+      <button class="nav-item" onclick="window.location.href='ido-platforma-step-a.html'">Люди</button>
+      <button class="nav-item" onclick="window.location.href='ido-platforma-step-c.html'">Курсы</button>
+      <button class="nav-item act">Документы</button>
+    </nav>
+    <div class="hdr-right">
+      <div class="db-pill" id="db-pill"><span class="dot"></span><span id="db-pill-txt">База не подключена</span></div>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">🌙</button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+<div class="page-head">
+  <div class="page-title">Документы</div>
+  <div class="page-sub">Генерация документов курса и управление шаблонами</div>
+</div>
+
+<!-- Подвкладки -->
+<div class="subtabs">
+  <button class="subtab act" id="subtab-gen" onclick="switchSubtab('gen')">📄 Генерация</button>
+  <button class="subtab" id="subtab-tmpl" onclick="switchSubtab('tmpl')">📁 Шаблоны <span class="subtab-badge" id="tmpl-count">0</span></button>
+</div>
+
+<!-- ════════ РАЗДЕЛ: ГЕНЕРАЦИЯ ════════ -->
+<div id="view-gen">
+<!-- Селектор курса -->
+<div class="course-select-card">
+  <label>Курс</label>
+  <select class="sel-big" id="course-select" onchange="onCourseChange()">
+    <option value="">— выберите курс —</option>
+  </select>
+</div>
+
+<!-- Контент (если курс выбран) -->
+<div id="content" style="display: none;">
+
+  <!-- Статистика курса -->
+  <div class="stats-row" id="stats-row"></div>
+
+  <!-- Дополнительные параметры -->
+  <div class="card card-pad section">
+    <div class="card-title" style="margin-bottom: 16px;">⚙️ Параметры генерации</div>
+    <div class="row-2">
+      <div class="fld">
+        <label>Начальный № приказа</label>
+        <input class="inp" type="number" id="g-ord-start" placeholder="будет авто-генерироваться">
+      </div>
+      <div class="fld">
+        <label>Дата приказов</label>
+        <input class="inp" type="date" id="g-doc-date">
+      </div>
+    </div>
+  </div>
+
+  <!-- Список документов -->
+  <div class="card section">
+    <div class="card-head">
+      <div class="card-title">📄 Документы для создания</div>
+      <div style="display: flex; gap: 6px;">
+        <button class="btn btn-ghost btn-sm" onclick="selectAll(true)">Выбрать все</button>
+        <button class="btn btn-ghost btn-sm" onclick="selectAll(false)">Снять</button>
+      </div>
+    </div>
+    <div style="padding: 18px 22px;">
+      <div class="doc-list" id="doc-list"></div>
+    </div>
+  </div>
+
+  <!-- Сводка + действия -->
+  <div class="summary" id="summary"></div>
+
+  <div class="action-bar">
+    <button class="btn btn-ghost btn-lg" onclick="previewSingle()" id="preview-btn">
+      👁 Предпросмотр (1 документ)
+    </button>
+    <button class="btn btn-primary btn-lg" onclick="generateAll()" id="generate-btn">
+      🚀 Создать все документы → ZIP
+    </button>
+  </div>
+
+  <!-- Лог -->
+  <div class="log" id="log"></div>
+</div>
+
+<!-- Пустое состояние -->
+<div id="empty-state" style="display: none;">
+  <div class="empty">
+    <div class="empty-icon">📂</div>
+    <div class="empty-title">Курсы не созданы</div>
+    <div>Сначала создайте курс с слушателями и специалистами</div>
+    <button class="btn btn-primary" style="margin-top: 16px;" onclick="window.location.href='ido-platforma-step-c.html'">Перейти к курсам</button>
+  </div>
+</div>
+</div><!-- /view-gen -->
+
+<!-- ════════ РАЗДЕЛ: ШАБЛОНЫ ════════ -->
+<div id="view-tmpl" style="display: none;">
+  <div class="alert alert-info">
+    <div class="alert-icon">📋</div>
+    <div>Шаблоны — это .docx файлы с метками <code>{{МЕТКА}}</code>. Загрузите их сюда, и движок будет использовать их при генерации. Чтобы заменить шаблон — загрузите новый с тем же названием.</div>
+  </div>
+
+  <div class="card section">
+    <div class="card-head">
+      <div class="card-title">📁 Шаблоны документов</div>
+      <label class="btn btn-primary btn-sm" style="cursor: pointer;">
+        ⬆ Загрузить шаблоны (.docx)
+        <input type="file" id="tmpl-upload" accept=".docx" multiple style="display: none;" onchange="uploadTemplates(event)">
+      </label>
+    </div>
+    <div style="padding: 4px;">
+      <div id="tmpl-table"></div>
+    </div>
+  </div>
+
+  <div class="log" id="tmpl-log"></div>
+</div>
+
+</main>
+
+<!-- Модалка предпросмотра -->
+<div class="overlay" id="preview-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">👁 Предпросмотр документа</div>
+      <button class="modal-close" onclick="document.getElementById('preview-modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info">
+        <div class="alert-icon">💡</div>
+        <div>Скачался <b id="preview-name">один документ</b>. Откройте его, проверьте все поля. Если что-то не так — закройте окно, отредактируйте шаблон в «Шаблонах» и нажмите предпросмотр снова.</div>
+      </div>
+      <div style="font-size: 13.5px; line-height: 1.6; color: var(--text-mut);">
+        Когда документ выглядит правильно — нажмите «Всё ок, создать все документы» ниже. Если нужно ещё что-то поправить — закройте окно и измените данные курса или шаблон.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="document.getElementById('preview-modal').classList.remove('open')">Закрыть</button>
+      <button class="btn btn-success" onclick="document.getElementById('preview-modal').classList.remove('open'); generateAll();">✅ Всё ок, создать все документы</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// СОСТОЯНИЕ
+// ═══════════════════════════════════════════════════════════
+let sb = null;
+let courses = [];
+let templates = [];
+let people = [];
+let currentCourse = null;
+let courseData = null; // {course, enrollments, specialists, commission, signer}
+
+// Типы документов и их генерация
+const DOC_TYPES = [
+  {id: 'order_holding',    label: 'Приказ о проведении курсов',          scope: 'group',    keywords: ['проведении','пп афк','проведения курсов']},
+  {id: 'order_org',        label: 'Приказ об организации (смета)',        scope: 'group',    keywords: ['организаци','смет','кпп афк']},
+  {id: 'order_iak',        label: 'Приказ о создании ИАК',                scope: 'group',    keywords: ['создании иак','иак','аттестационн комисс']},
+  {id: 'order_topics',     label: 'Приказ об утверждении тем ИАР',        scope: 'group',    keywords: ['тем иар','утверждении тем','тем ита']},
+  {id: 'order_admission',  label: 'Приказ о допуске к ИА',                scope: 'group',    keywords: ['допуск','итог аттест','к иа']},
+  {id: 'order_expulsion',  label: 'Приказ об отчислении (финал, список)', scope: 'group',    keywords: ['приказ об отчислении','отчислении из числа']},
+  {id: 'service_memo',     label: 'Служебная записка (бронь)',            scope: 'group',    keywords: ['служебн','бронь']},
+  {id: 'contract_student', label: 'Договор слушателя',                    scope: 'student',  keywords: ['обучающ','с обучающимися','договор слушат']},
+  {id: 'spravka_call',     label: 'Справка-вызов',                        scope: 'student',  keywords: ['справка-вызов','вызов','справка вызов']},
+  {id: 'contract_gph',     label: 'Договор ГПХ специалиста',              scope: 'spec',     keywords: ['договор гпх','гпх']},
+  {id: 'act_gph',          label: 'Акт выполнения услуг',                 scope: 'spec',     keywords: ['акт','акт выполн']},
+];
+let selectedDocs = new Set();
+
+// ═══════════════════════════════════════════════════════════
+// ТЕМА
+// ═══════════════════════════════════════════════════════════
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('ido-theme', t);
+}
+function toggleTheme() {
+  applyTheme((document.documentElement.dataset.theme || 'light') === 'light' ? 'dark' : 'light');
+}
+applyTheme(localStorage.getItem('ido-theme') || 'light');
+
+// ═══════════════════════════════════════════════════════════
+// ОПРЕДЕЛЕНИЕ ПОЛА по отчеству → склонения "именуемый/ая"
+// ═══════════════════════════════════════════════════════════
+function makeVocative(fullName) {
+  // Превращает "Павлова Аделия Вадимовна" → "Уважаемая Аделия Вадимовна!"
+  if (!fullName) return 'Уважаемый коллега';
+  const parts = fullName.trim().split(/\s+/);
+  const female = detectFemaleByName(fullName);
+  const prefix = female ? 'Уважаемая' : 'Уважаемый';
+  const firstName = parts[1] || '';
+  const patronymic = parts[2] || '';
+  return `${prefix} ${firstName} ${patronymic}`.trim();
+}
+
+function detectFemaleByName(fullName) {
+  if (!fullName) return false;
+  const parts = fullName.trim().split(/\s+/);
+  const patronymic = parts[2] || '';
+  const p = patronymic.toLowerCase();
+  if (/(овна|евна|ична|инична)$/.test(p)) return true;
+  if (/(ович|евич|ьич|ич)$/.test(p)) return false;
+  // По имени
+  const firstName = parts[1] || '';
+  if (/(а|я)$/.test(firstName) && !['Никита','Илья','Кузьма','Фома','Лука','Данила'].includes(firstName)) return true;
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════════════
+async function init() {
+  const url = localStorage.getItem('ido-sb-url');
+  const key = localStorage.getItem('ido-sb-key');
+  if (!url || !key) {
+    alert('База данных не подключена. Откройте справочник людей и подключите Supabase.');
+    return;
+  }
+  try {
+    sb = supabase.createClient(url, key);
+    const [cs, ts, ps] = await Promise.all([
+      sb.from('courses').select('*').order('created_at', {ascending: false}),
+      sb.from('dg_templates').select('id,name,type,placeholders,storage_path,b64'),
+      sb.from('people').select('id,name_nom,name_gen,name_dat,initials,position_nom,position_gen,position_dat,academic_degree,academic_title,department,poa_number,poa_date,passport,snils,inn,address,bank,account,birthday,category')
+    ]);
+    courses = cs.data || [];
+    templates = ts.data || [];
+    people = ps.data || [];
+    updateDbPill(true);
+    renderCourseSelect();
+    document.getElementById('tmpl-count').textContent = templates.length;
+  } catch (e) {
+    document.getElementById('db-pill-txt').textContent = 'Ошибка: ' + e.message.slice(0,40);
+  }
+}
+
+function updateDbPill(ok) {
+  document.getElementById('db-pill').classList.toggle('on', ok);
+  document.getElementById('db-pill-txt').textContent = ok ? 'База подключена' : 'База не подключена';
+}
+
+function renderCourseSelect() {
+  const sel = document.getElementById('course-select');
+  if (!courses.length) {
+    document.getElementById('empty-state').style.display = 'block';
+    document.querySelector('.course-select-card').style.display = 'none';
+    return;
+  }
+  sel.innerHTML = '<option value="">— выберите курс —</option>' +
+    courses.map(c => `<option value="${c.id}">${esc(c.name)} (${fmt(c.start_date)})</option>`).join('');
+
+  // Auto-select via URL ?course=ID
+  const params = new URLSearchParams(location.search);
+  const cid = params.get('course');
+  if (cid && courses.find(c => c.id == cid)) {
+    sel.value = cid;
+    onCourseChange();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ВЫБОР КУРСА
+// ═══════════════════════════════════════════════════════════
+async function onCourseChange() {
+  const id = parseInt(document.getElementById('course-select').value);
+  if (!id) {
+    document.getElementById('content').style.display = 'none';
+    return;
+  }
+  currentCourse = courses.find(c => c.id === id);
+  await loadCourseData();
+  renderStats();
+  renderDocList();
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('content').classList.remove('reveal');
+  void document.getElementById('content').offsetWidth;
+  document.getElementById('content').classList.add('reveal');
+
+  // Default values
+  document.getElementById('g-ord-start').value = currentCourse.main_order_number || '';
+  document.getElementById('g-doc-date').value = currentCourse.main_order_date || new Date().toISOString().slice(0,10);
+}
+
+async function loadCourseData() {
+  const id = currentCourse.id;
+  const [enr, spec, comm] = await Promise.all([
+    sb.from('course_enrollments').select('*').eq('course_id', id).order('full_name'),
+    sb.from('course_specialists').select('*').eq('course_id', id).order('id'),
+    sb.from('course_commission').select('*').eq('course_id', id),
+  ]);
+  courseData = {
+    enrollments: enr.data || [],
+    specialists: spec.data || [],
+    commission: comm.data || [],
+    signer: currentCourse.signer_id ? people.find(p => p.id === currentCourse.signer_id) : null,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// СТАТИСТИКА
+// ═══════════════════════════════════════════════════════════
+function renderStats() {
+  const stats = [
+    {label: 'Слушателей', value: courseData.enrollments.length, sub: 'на курсе'},
+    {label: 'Специалистов', value: courseData.specialists.length, sub: 'по договорам ГПХ'},
+    {label: 'Членов ИАК', value: courseData.commission.length, sub: 'в комиссии'},
+    {label: 'Подписант', value: courseData.signer ? courseData.signer.initials : '—', sub: courseData.signer?.position_nom || 'не задан', big: !courseData.signer},
+  ];
+  document.getElementById('stats-row').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value" style="${s.value === '—' ? 'color: var(--danger);' : ''}">${s.value}</div>
+      <div class="stat-sub">${s.sub}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// СПИСОК ДОКУМЕНТОВ
+// ═══════════════════════════════════════════════════════════
+function renderDocList() {
+  const el = document.getElementById('doc-list');
+  el.innerHTML = DOC_TYPES.map(d => {
+    const tmpl = findTmpl(d.keywords);
+    const hasTmpl = !!tmpl;
+    let count = 1, countLabel = '1 файл';
+    if (d.scope === 'student') { count = courseData.enrollments.length; countLabel = `${count} файл${plural(count)}`; }
+    else if (d.scope === 'spec') { count = courseData.specialists.length; countLabel = `${count} файл${plural(count)}`; }
+    const disabled = !hasTmpl || count === 0;
+    const checked = selectedDocs.has(d.id);
+    const meta = !hasTmpl ? `❌ шаблон не найден` :
+                 count === 0 ? `⚠️ некому создавать` :
+                 d.scope === 'group' ? `на курс` :
+                 d.scope === 'student' ? `по слушателям` : `по специалистам`;
+    return `<div class="doc-row${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}" onclick="${disabled ? '' : `toggleDoc('${d.id}')`}">
+      <div class="doc-check">${checked ? '✓' : ''}</div>
+      <div class="doc-info">
+        <div class="doc-name">${esc(d.label)}</div>
+        <div class="doc-meta">${meta}</div>
+      </div>
+      <div class="doc-count">${countLabel}</div>
+    </div>`;
+  }).join('');
+  updateSummary();
+}
+
+function plural(n) { return n === 1 ? '' : 'а'; }
+
+function toggleDoc(id) {
+  if (selectedDocs.has(id)) selectedDocs.delete(id);
+  else selectedDocs.add(id);
+  renderDocList();
+}
+
+function selectAll(on) {
+  selectedDocs.clear();
+  if (on) DOC_TYPES.forEach(d => {
+    const tmpl = findTmpl(d.keywords);
+    if (!tmpl) return;
+    const count = d.scope === 'student' ? courseData.enrollments.length :
+                  d.scope === 'spec' ? courseData.specialists.length : 1;
+    if (count > 0) selectedDocs.add(d.id);
+  });
+  renderDocList();
+}
+
+function updateSummary() {
+  let totalFiles = 0;
+  selectedDocs.forEach(id => {
+    const d = DOC_TYPES.find(x => x.id === id);
+    if (!d) return;
+    if (d.scope === 'student') totalFiles += courseData.enrollments.length;
+    else if (d.scope === 'spec') totalFiles += courseData.specialists.length;
+    else totalFiles += 1;
+  });
+  const el = document.getElementById('summary');
+  if (totalFiles === 0) {
+    el.innerHTML = `<span style="color: var(--text-mut);">Выберите документы для генерации</span>`;
+  } else {
+    el.innerHTML = `Будет создано <b>${totalFiles}</b> файл${totalFiles === 1 ? '' : totalFiles < 5 ? 'а' : 'ов'} — упакуется в один ZIP-архив с папками`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ПОИСК ШАБЛОНА
+// ═══════════════════════════════════════════════════════════
+function findTmpl(keywords) {
+  return templates.find(t => {
+    const n = (t.name || '').toLowerCase();
+    return keywords.some(k => n.includes(k.toLowerCase()));
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ФОРМИРОВАНИЕ ДАННЫХ ДЛЯ ПОДСТАНОВКИ
+// ═══════════════════════════════════════════════════════════
+function buildCourseData() {
+  const c = currentCourse;
+  const signer = courseData.signer;
+  const startDate = fmtRus(c.start_date);
+  const endDate = fmtRus(c.end_date);
+  const docDate = fmtRus(document.getElementById('g-doc-date').value || c.main_order_date);
+  const orderNum = document.getElementById('g-ord-start').value || c.main_order_number || '';
+
+  // Поиск ИАК по ролям
+  const comm = courseData.commission.map(m => ({...m, person: people.find(p => p.id === m.person_id)}));
+  const findRole = (role) => {
+    const m = comm.find(x => x.role === role);
+    if (!m || !m.person) return '';
+    const p = m.person;
+    const regalia = [p.academic_degree, p.academic_title].filter(Boolean).join(', ');
+    return `${p.name_nom}${regalia ? ', ' + regalia : ''}${p.position_nom ? ', ' + p.position_nom : ''}${p.department ? ', ' + p.department : ''}`;
+  };
+  const findAllRoles = (role) => comm.filter(x => x.role === role).map(m => {
+    const p = m.person; if (!p) return '';
+    const regalia = [p.academic_degree, p.academic_title].filter(Boolean).join(', ');
+    return `${p.name_nom}${regalia ? ', ' + regalia : ''}${p.position_nom ? ', ' + p.position_nom : ''}${p.department ? ', ' + p.department : ''}`;
+  });
+  const members = findAllRoles('member');
+
+  // Главный бухгалтер из справочника (по должности)
+  const buh = people.find(p => /бухгалтер/i.test(p.position_nom || ''));
+  // Директор ИДО
+  const dirIDO = people.find(p => /директор.*идо/i.test(p.position_nom || '') || /директор.*институт.*доп/i.test(p.position_nom || ''));
+  // Проректор по учебной работе (для служебной записки)
+  const prorectorUch = people.find(p => /проректор.*учеб/i.test(p.position_nom || ''));
+
+  const data = {
+    // Программа курса
+    ПРОГРАММА: c.name || '',
+    ДАТА_НАЧАЛА: startDate,
+    ДАТА_ОКОНЧАНИЯ: endDate,
+    ЧАСЫ: String(c.hours || 0),
+    ФОРМА: c.form || '',
+    ВИД: c.document_type || '',
+    КВАЛИФИКАЦИЯ: c.qualification || '',
+    УЧ_ГОД: c.academic_year || '',
+    ГОД: c.academic_year ? c.academic_year.split('-')[1] || c.academic_year : new Date().getFullYear(),
+
+    // Документы
+    НОМЕР_ПРИКАЗА: orderNum,
+    ДАТА: docDate,
+    НОМ_ОСНОГО_ПРИКАЗА: c.main_order_number || '',
+    НОМЕР_ОСН_ПРИКАЗА: c.main_order_number || '',
+
+    // Финансы
+    СТОИМОСТЬ: c.price ? Number(c.price).toLocaleString('ru-RU') : '',
+    СТОИМОСТЬ_ПРОПИСЬ: c.price_words || '',
+
+    // Сессия
+    ДАТА_СЕССИИ_НАЧ: fmtRus(c.session_start_date),
+    ДАТА_СЕССИИ_КОН: fmtRus(c.session_end_date),
+
+    // Подписант
+    ПОДПИСАНТ: signer?.initials || '',
+    ИНИЦИАЛЫ_ПОДП: signer?.initials || '',
+    ДОЛЖНОСТЬ_ПОДП: signer?.position_nom || 'Ректор',
+    ДОЛЖНОСТЬ_ПОДП_РОД: signer?.position_gen || '',
+    ДОЛЖНОСТЬ_ПОДП_ДАТ: signer?.position_dat || '',
+    ФИО_ПОДП_РОД: signer?.name_gen || '',
+    ФИО_ПОДП_ДАТ: signer?.name_dat || '',
+    НОМ_ДОВЕРЕН: signer?.poa_number || '',
+    ДАТА_ДОВЕРЕН: fmtRus(signer?.poa_date) || '',
+
+    // Учреждение
+    УЧРЕЖДЕНИЕ: 'ФГБОУ ВО "Поволжский ГУФКСиТ"',
+    ПОДРАЗДЕЛЕНИЕ: 'Институт дополнительного образования',
+    ГОРОД: 'Казань',
+
+    // ИАК
+    ПРЕДСЕДАТЕЛЬ_ИАК: findRole('chair'),
+    ЗАМ_ПРЕДСЕДАТЕЛЯ_ИАК: findRole('deputy'),
+    ЧЛЕН_ИАК_1: members[0] || '',
+    ЧЛЕН_ИАК_2: members[1] || '',
+    ЧЛЕН_ИАК_3: members[2] || '',
+    СЕКРЕТАРЬ_ИАК: findRole('secretary'),
+    // Члены ИАК единым списком (для приказа ИАК) — каждый с новой строки через тире
+    ЧЛЕНЫ_ИАК: members.length ? members.map(m => '- ' + m + ';').join('\n').replace(/;$/, '.') : '',
+
+    // Доп. лица
+    ГЛАВ_БУХ: buh?.initials || '',
+    ДИРЕКТОР_ИДО: dirIDO?.initials || '',
+    ПРОРЕКТОР: people.find(p => /проректор.*учеб/i.test(p.position_nom || ''))?.name_dat || '',
+    ОТВ_ИСПОЛНИТЕЛЬ: signer?.initials ? `${signer.initials}, тел.: 294-90-08` : '',
+    // Адресат служебной записки — проректор по учебной работе в дательном падеже (звательно)
+    АДРЕСАТ: prorectorUch?.name_nom ? makeVocative(prorectorUch.name_nom) : 'Уважаемый коллега',
+    // Основание полномочий подписанта: доверенность или Устав
+    ОСНОВАНИЕ_ПОДП: signer?.poa_number
+      ? `действующего на основании доверенности № ${signer.poa_number}${signer.poa_date ? ' от ' + fmtRus(signer.poa_date) : ''}`
+      : 'действующего на основании Устава',
+  };
+
+  // Заполняем ФИО_1..ФИО_30 списком слушателей
+  courseData.enrollments.forEach((e, i) => {
+    data[`ФИО_${i + 1}`] = e.full_name;
+  });
+  for (let i = courseData.enrollments.length + 1; i <= 30; i++) {
+    data[`ФИО_${i}`] = ''; // пустые для удаления строк
+  }
+
+  return data;
+}
+
+function buildStudentData(enr) {
+  const base = buildCourseData();
+  const female = detectFemaleByName(enr.full_name);
+  return {
+    ...base,
+    ФИО: enr.full_name || '',
+    ФИО_РОД: enr.full_name_gen || enr.full_name || '',
+    ФИО_ДАТ: enr.full_name_dat || enr.full_name || '',
+    ИМЕНУЕМЫЙ: female ? 'именуемая' : 'именуемый',
+    ОРГАНИЗАЦИЯ: enr.organization || '',
+    ДОЛЖНОСТЬ: enr.position || '',
+    EMAIL: enr.email || '',
+    ТЕЛЕФОН: enr.phone || '',
+    АДРЕС: enr.city || enr.region || '',
+    ПАСПОРТ: '',
+    СНИЛС: enr.snils || '',
+    ИНН: enr.inn || '',
+    НОМЕР_ДОГОВОРА: enr.contract_number || '',
+    СТОИМОСТЬ: enr.contract_amount ? Number(enr.contract_amount).toLocaleString('ru-RU') : base.СТОИМОСТЬ,
+  };
+}
+
+function buildSpecData(spec) {
+  const base = buildCourseData();
+  const person = people.find(p => p.id === spec.person_id);
+  const femaleSpec = detectFemaleByName(person?.name_nom || '');
+  return {
+    ...base,
+    ФИО_СПЕЦИАЛИСТ: person?.name_nom || '',
+    ИНИЦИАЛЫ_СПЕЦИАЛИСТ: person?.initials || '',
+    ИМЕНУЕМЫЙ_СПЕЦ: femaleSpec ? 'именуемая' : 'именуемый',
+    ГРАЖДАНИН: femaleSpec ? 'гражданка' : 'гражданин',
+    РОЛЬ_СПЕЦИАЛИСТ: spec.role || '',
+    ЧАСЫ_ГПХ: String(spec.hours || 0),
+    СТОИМОСТЬ_ГПХ: spec.amount ? Number(spec.amount).toLocaleString('ru-RU') : '',
+    СТОИМОСТЬ_ПРОПИСЬ_ГПХ: spec.amount_words || '',
+    НОМЕР_ДОГОВОРА_ГПХ: spec.gph_contract_number || '',
+    ДАТА_ДОГОВОРА_ГПХ: fmtRus(spec.gph_contract_date),
+    ДАТА_УСЛУГИ: fmtRus(spec.service_date),
+    ПАСПОРТ_СПЕЦИАЛИСТ: person?.passport || '',
+    СНИЛС_СПЕЦИАЛИСТ: person?.snils || '',
+    ИНН_СПЕЦИАЛИСТ: person?.inn || '',
+    АДРЕС_СПЕЦИАЛИСТ: person?.address || '',
+    БАНК_СПЕЦИАЛИСТ: person?.bank || '',
+    СЧЕТ_СПЕЦИАЛИСТ: person?.account || '',
+    ДАТА_РОЖДЕНИЯ_СПЕЦ: fmtRus(person?.birthday),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// ГЕНЕРАЦИЯ DOCX
+// ═══════════════════════════════════════════════════════════
+async function fetchTemplateFile(tmpl) {
+  if (tmpl._ab) return tmpl._ab;
+  if (tmpl.storage_path) {
+    const {data, error} = await sb.storage.from('templates').download(tmpl.storage_path);
+    if (error) throw new Error('Не удалось загрузить шаблон: ' + error.message);
+    tmpl._ab = await data.arrayBuffer();
+    return tmpl._ab;
+  }
+  if (tmpl.b64) {
+    tmpl._ab = b64ToAb(tmpl.b64);
+    return tmpl._ab;
+  }
+  throw new Error('Файл шаблона не найден');
+}
+
+function b64ToAb(b64) {
+  const bin = atob(b64);
+  const ab = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) ab[i] = bin.charCodeAt(i);
+  return ab.buffer;
+}
+
+function escapeXml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+// Склеивает {{МЕТКИ}} разорванные Word'ом в несколько <w:r>
+function fixSplits(xml) {
+  return xml.replace(/\{\{((?:[^}<]|<[^>]+>)*?)\}\}/g, m => m.replace(/<[^>]+>/g, ''));
+}
+
+// Удаляет строки таблицы где остались незаполненные {{МЕТКИ}}
+function removeEmptyTableRows(xml) {
+  return xml.replace(/<w:tr[ >](?:(?!<w:tr[ >]|<\/w:tr>)[\s\S])*?\{\{[^}]+\}\}(?:(?!<\/w:tr>)[\s\S])*?<\/w:tr>/g, '');
+}
+
+async function genDocx(tmpl, data) {
+  const ab = await fetchTemplateFile(tmpl);
+  const zip = await JSZip.loadAsync(ab);
+  const xmlFiles = Object.keys(zip.files).filter(f =>
+    f.endsWith('.xml') && !f.includes('_rels') && !f.includes('[Content_Types]') && !zip.files[f].dir
+  );
+  for (const fn of xmlFiles) {
+    let xml = await zip.files[fn].async('string');
+    xml = fixSplits(xml);
+    for (const [k, v] of Object.entries(data)) {
+      xml = xml.split('{{' + k + '}}').join(escapeXml(v));
+    }
+    xml = removeEmptyTableRows(xml);
+    zip.file(fn, new TextEncoder().encode(xml));
+  }
+  return await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ПРЕДПРОСМОТР
+// ═══════════════════════════════════════════════════════════
+async function previewSingle() {
+  if (!selectedDocs.size) { alert('Выберите хотя бы один документ'); return; }
+  const log = document.getElementById('log');
+  log.classList.add('show');
+  log.innerHTML = '';
+
+  const btn = document.getElementById('preview-btn');
+  btn.innerHTML = '<span class="spinner"></span> Создаём образец...';
+  btn.disabled = true;
+
+  try {
+    // Берём первый выбранный документ
+    const firstDocId = [...selectedDocs][0];
+    const d = DOC_TYPES.find(x => x.id === firstDocId);
+    const tmpl = findTmpl(d.keywords);
+    logMsg(`Берём первый выбранный документ: <b>${d.label}</b>`, 'info');
+    logMsg(`Шаблон: <b>${tmpl.name}</b>`, 'info');
+
+    let data, suffix = '';
+    if (d.scope === 'student') {
+      const enr = courseData.enrollments[0];
+      data = buildStudentData(enr);
+      suffix = ' — ' + (enr.surname || enr.full_name.split(' ')[0]);
+      logMsg(`Слушатель для образца: ${enr.full_name}`, 'info');
+    } else if (d.scope === 'spec') {
+      const spec = courseData.specialists[0];
+      const person = people.find(p => p.id === spec.person_id);
+      data = buildSpecData(spec);
+      suffix = ' — ' + (person?.name_nom.split(' ')[0] || 'специалист');
+      logMsg(`Специалист для образца: ${person?.name_nom}`, 'info');
+    } else {
+      data = buildCourseData();
+    }
+
+    const blob = await genDocx(tmpl, data);
+    const fileName = `ОБРАЗЕЦ — ${d.label}${suffix}.docx`;
+    saveAs(blob, fileName);
+    logMsg(`✅ Скачан: <b>${fileName}</b>`, 'ok');
+
+    // Показываем модалку с подтверждением
+    document.getElementById('preview-name').textContent = fileName;
+    document.getElementById('preview-modal').classList.add('open');
+  } catch (e) {
+    logMsg(`❌ Ошибка: ${e.message}`, 'err');
+    console.error(e);
+  } finally {
+    btn.innerHTML = '👁 Предпросмотр (1 документ)';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ПОЛНАЯ ГЕНЕРАЦИЯ
+// ═══════════════════════════════════════════════════════════
+async function generateAll() {
+  if (!selectedDocs.size) { alert('Выберите хотя бы один документ'); return; }
+  const log = document.getElementById('log');
+  log.classList.add('show');
+  log.innerHTML = '';
+
+  const btn = document.getElementById('generate-btn');
+  btn.innerHTML = '<span class="spinner"></span> Создаём документы...';
+  btn.disabled = true;
+
+  try {
+    const zip = new JSZip();
+    let totalFiles = 0;
+    let doneFiles = 0;
+
+    // Подсчёт общего числа
+    selectedDocs.forEach(id => {
+      const d = DOC_TYPES.find(x => x.id === id);
+      if (d.scope === 'student') totalFiles += courseData.enrollments.length;
+      else if (d.scope === 'spec') totalFiles += courseData.specialists.length;
+      else totalFiles += 1;
+    });
+
+    logMsg(`Всего файлов к созданию: <b>${totalFiles}</b>`, 'info');
+
+    const courseFolder = currentCourse.name.replace(/[^\wА-Яа-яЁё\s]/g, '').slice(0, 60).trim() ||
+                         `Курс_${currentCourse.id}`;
+
+    // ── Групповые документы (на курс) ──
+    const groupFolder = '01_Общие приказы';
+    for (const docId of selectedDocs) {
+      const d = DOC_TYPES.find(x => x.id === docId);
+      if (d.scope !== 'group') continue;
+      const tmpl = findTmpl(d.keywords);
+      if (!tmpl) { logMsg(`⚠️ Шаблон для "${d.label}" не найден — пропускаем`, 'warn'); continue; }
+      try {
+        const data = buildCourseData();
+        const blob = await genDocx(tmpl, data);
+        const ab = await blob.arrayBuffer();
+        zip.file(`${groupFolder}/${d.label}.docx`, ab);
+        doneFiles++;
+        logMsg(`✓ <span class="ok">${d.label}</span> [${doneFiles}/${totalFiles}]`, '');
+      } catch (e) {
+        logMsg(`✗ ${d.label}: ${e.message}`, 'err');
+      }
+    }
+
+    // ── Документы по слушателям ──
+    for (const docId of selectedDocs) {
+      const d = DOC_TYPES.find(x => x.id === docId);
+      if (d.scope !== 'student') continue;
+      const tmpl = findTmpl(d.keywords);
+      if (!tmpl) { logMsg(`⚠️ Шаблон для "${d.label}" не найден`, 'warn'); continue; }
+
+      for (const enr of courseData.enrollments) {
+        try {
+          const data = buildStudentData(enr);
+          const blob = await genDocx(tmpl, data);
+          const ab = await blob.arrayBuffer();
+          const stFolder = (enr.surname || enr.full_name.split(' ')[0]) + '_' + (enr.first_name || enr.full_name.split(' ')[1] || '');
+          zip.file(`02_Слушатели/${stFolder}/${d.label}.docx`, ab);
+          doneFiles++;
+          if (doneFiles % 10 === 0 || doneFiles === totalFiles) {
+            logMsg(`✓ ${d.label} (${doneFiles}/${totalFiles})`, '');
+          }
+        } catch (e) {
+          logMsg(`✗ ${d.label} для ${enr.full_name}: ${e.message}`, 'err');
+        }
+      }
+      logMsg(`✓ <span class="ok">${d.label} × ${courseData.enrollments.length}</span> готово`, '');
+    }
+
+    // ── Документы по специалистам ──
+    for (const docId of selectedDocs) {
+      const d = DOC_TYPES.find(x => x.id === docId);
+      if (d.scope !== 'spec') continue;
+      const tmpl = findTmpl(d.keywords);
+      if (!tmpl) { logMsg(`⚠️ Шаблон для "${d.label}" не найден`, 'warn'); continue; }
+
+      for (const spec of courseData.specialists) {
+        try {
+          const person = people.find(p => p.id === spec.person_id);
+          const data = buildSpecData(spec);
+          const blob = await genDocx(tmpl, data);
+          const ab = await blob.arrayBuffer();
+          const spParts = (person?.name_nom || '').split(' ');
+          const spFolder = spParts.length >= 2 ? `${spParts[0]}_${spParts[1]}` : (person?.name_nom || `Специалист_${spec.id}`);
+          zip.file(`03_Специалисты/${spFolder}/${d.label}.docx`, ab);
+          doneFiles++;
+        } catch (e) {
+          logMsg(`✗ ${d.label}: ${e.message}`, 'err');
+        }
+      }
+      logMsg(`✓ <span class="ok">${d.label} × ${courseData.specialists.length}</span> готово`, '');
+    }
+
+    logMsg(`<br>Упаковываем ZIP...`, 'info');
+    const zipBlob = await zip.generateAsync({type: 'blob'});
+    const zipName = `Документы_${courseFolder}_${new Date().toISOString().slice(0,10)}.zip`;
+    saveAs(zipBlob, zipName);
+    logMsg(`✅ <b>Скачан: ${zipName}</b> (${(zipBlob.size / 1024 / 1024).toFixed(2)} МБ)`, 'ok');
+  } catch (e) {
+    logMsg(`❌ Ошибка: ${e.message}`, 'err');
+    console.error(e);
+  } finally {
+    btn.innerHTML = '🚀 Создать все документы → ZIP';
+    btn.disabled = false;
+  }
+}
+
+function logMsg(msg, cls) {
+  const log = document.getElementById('log');
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.innerHTML = msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════
+// УТИЛИТЫ
+// ═══════════════════════════════════════════════════════════
+function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function fmt(d) {
+  if (!d) return '';
+  const dt = new Date(d); if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit', year: 'numeric'});
+}
+function fmtRus(d) {
+  if (!d) return '';
+  const dt = new Date(d); if (isNaN(dt)) return d;
+  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()} г.`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// УПРАВЛЕНИЕ ШАБЛОНАМИ
+// ═══════════════════════════════════════════════════════════
+
+// Ожидаемые шаблоны (имя в БД ↔ ключевые слова для движка)
+const EXPECTED_TEMPLATES = [
+  'Договор с обучающимися',
+  'Договор ГПХ специалист',
+  'Акт выполнения услуг',
+  'Приказ о проведении курсов',
+  'Приказ об организации',
+  'Приказ о создании ИАК',
+  'Приказ об утверждении тем ИАР',
+  'Приказ о допуске к ИА',
+  'Приказ об отчислении',
+  'Отчисление по заявлению',
+  'Справка-вызов',
+  'Служебная записка',
+  'Научные руководители',
+];
+
+function switchSubtab(which) {
+  document.getElementById('subtab-gen').classList.toggle('act', which === 'gen');
+  document.getElementById('subtab-tmpl').classList.toggle('act', which === 'tmpl');
+  document.getElementById('view-gen').style.display = which === 'gen' ? 'block' : 'none';
+  document.getElementById('view-tmpl').style.display = which === 'tmpl' ? 'block' : 'none';
+  if (which === 'tmpl') renderTemplates();
+}
+
+function renderTemplates() {
+  const el = document.getElementById('tmpl-table');
+  document.getElementById('tmpl-count').textContent = templates.length;
+
+  // Сопоставляем ожидаемые с загруженными
+  const rows = EXPECTED_TEMPLATES.map(name => {
+    const found = templates.find(t => (t.name || '').toLowerCase().trim() === name.toLowerCase().trim());
+    return { name, found };
+  });
+  // Плюс любые лишние шаблоны не из списка
+  const extra = templates.filter(t => !EXPECTED_TEMPLATES.some(n => n.toLowerCase().trim() === (t.name||'').toLowerCase().trim()));
+
+  el.innerHTML = rows.map(r => `
+    <div class="tmpl-row">
+      <div class="tmpl-icon">${r.found ? '📄' : '📭'}</div>
+      <div class="tmpl-info">
+        <div class="tmpl-name">${esc(r.name)}</div>
+        <div class="tmpl-meta">${r.found ? 'загружен' : 'не загружен — документ не будет создаваться'}</div>
+      </div>
+      <span class="tmpl-status ${r.found ? 'tmpl-ok' : 'tmpl-missing'}">${r.found ? '✓ есть' : 'нет файла'}</span>
+      ${r.found ? `<button class="btn btn-danger btn-sm btn-icon" onclick="deleteTemplate(${r.found.id})" title="Удалить">🗑</button>` : ''}
+    </div>
+  `).join('') + (extra.length ? `
+    <div style="padding: 12px 16px; font-size: 12px; color: var(--text-mut); border-top: 1px solid var(--border);">Дополнительные шаблоны (не из стандартного набора):</div>
+    ${extra.map(t => `
+    <div class="tmpl-row">
+      <div class="tmpl-icon">📄</div>
+      <div class="tmpl-info"><div class="tmpl-name">${esc(t.name)}</div><div class="tmpl-meta">пользовательский</div></div>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="deleteTemplate(${t.id})">🗑</button>
+    </div>`).join('')}` : '');
+}
+
+async function uploadTemplates(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  const log = document.getElementById('tmpl-log');
+  log.classList.add('show');
+  log.innerHTML = '';
+
+  for (const file of files) {
+    // Имя шаблона = имя файла без расширения
+    // Исправляем возможную битую кодировку (mojibake)
+    let rawName = file.name;
+    try {
+      // Если имя пришло как Latin-1 байты UTF-8 — восстанавливаем
+      const test = decodeURIComponent(escape(rawName));
+      if (/[А-Яа-яЁё]/.test(test)) rawName = test;
+    } catch (e) { /* оставляем как есть */ }
+    let tmplName = rawName.replace(/\.docx$/i, '').trim();
+    // Убираем суффиксы вроде "_ШАБЛОН"
+    tmplName = tmplName.replace(/_ШАБЛОН$/i, '').trim();
+
+    tmplLog(`Загрузка: <b>${esc(file.name)}</b> → «${esc(tmplName)}»`, 'info');
+    try {
+      // Читаем как base64
+      const b64 = await fileToB64(file);
+      // Загружаем в Storage
+      const storagePath = `${Date.now()}_${file.name.replace(/[^\w.\-]/g, '_')}`;
+      const { error: upErr } = await sb.storage.from('templates').upload(storagePath, file, {
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        upsert: true,
+      });
+      if (upErr) {
+        // Если Storage недоступен — сохраняем base64 в БД как фолбэк
+        tmplLog(`  Storage недоступен, сохраняем в БД...`, 'warn');
+      }
+
+      // Ищем существующий шаблон с таким именем
+      const existing = templates.find(t => (t.name||'').toLowerCase().trim() === tmplName.toLowerCase().trim());
+      const record = {
+        name: tmplName,
+        type: tmplName,
+        storage_path: upErr ? null : storagePath,
+        b64: upErr ? b64 : null,
+      };
+
+      if (existing) {
+        await sb.from('dg_templates').update(record).eq('id', existing.id);
+        tmplLog(`  ✓ Заменён существующий шаблон`, 'ok');
+      } else {
+        await sb.from('dg_templates').insert(record);
+        tmplLog(`  ✓ Добавлен новый шаблон`, 'ok');
+      }
+    } catch (e) {
+      tmplLog(`  ✗ Ошибка: ${e.message}`, 'err');
+    }
+  }
+
+  // Перезагружаем список шаблонов
+  const { data } = await sb.from('dg_templates').select('id,name,type,placeholders,storage_path,b64');
+  templates = data || [];
+  // Сбрасываем кэш загруженных файлов
+  templates.forEach(t => delete t._ab);
+  event.target.value = '';
+  renderTemplates();
+  tmplLog(`<br>✅ Готово. Обновите генерацию документов.`, 'ok');
+}
+
+function fileToB64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function deleteTemplate(id) {
+  const t = templates.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Удалить шаблон «${t.name}»?`)) return;
+  try {
+    if (t.storage_path) {
+      await sb.storage.from('templates').remove([t.storage_path]).catch(() => {});
+    }
+    await sb.from('dg_templates').delete().eq('id', id);
+    templates = templates.filter(x => x.id !== id);
+    renderTemplates();
+    tmplLog(`✓ Удалён: ${esc(t.name)}`, 'ok');
+  } catch (e) {
+    alert('Ошибка: ' + e.message);
+  }
+}
+
+function tmplLog(msg, cls) {
+  const log = document.getElementById('tmpl-log');
+  log.classList.add('show');
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.innerHTML = msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+init();
+</script>
+</body>
+</html>
