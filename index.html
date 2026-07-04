@@ -788,6 +788,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
       <button class="nav-item active" data-section="people" onclick="goSection('people')">Люди</button>
       <button class="nav-item" data-section="courses" onclick="goSection('courses')">Курсы</button>
       <button class="nav-item" data-section="documents" onclick="goSection('documents')">Документы</button>
+      <button class="nav-item" data-section="ai" onclick="goSection('ai')">🤖 ИИ-помощник</button>
       <button class="nav-item" data-section="settings" onclick="goSection('settings')">Настройки</button>
     </nav>
     <div class="hdr-right">
@@ -1556,6 +1557,42 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
 
 
 </div>
+
+<div class="section-page" id="section-ai">
+<div class="main">
+  <div class="page-head">
+    <div class="page-title">🤖 ИИ-помощник</div>
+    <div class="page-sub">Консультант по делопроизводству ИДО: отвечает на вопросы, генерирует нестандартные документы</div>
+  </div>
+
+  <div class="row-2" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;">
+    <div>
+      <div class="card" style="display:flex;flex-direction:column;height:70vh;">
+        <div id="ai-chat" style="flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div class="alert alert-info" style="margin:0;"><div class="alert-icon">💡</div><div>Задайте вопрос о делопроизводстве ИДО или попросите составить нестандартный документ. Помощник знает порядок оформления курсов, метки платформы и стандарты вуза.</div></div>
+        </div>
+        <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;">
+          <textarea class="ta" id="ai-input" rows="2" placeholder="Например: составь приказ о переносе сроков итоговой аттестации..." style="flex:1;min-height:44px;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend();}"></textarea>
+          <button class="btn btn-primary" id="ai-send-btn" onclick="aiSend()">➤</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card card-pad" style="margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:10px;">🔑 Ключ API</div>
+        <input class="inp" id="ai-key" type="password" placeholder="sk-ant-..." style="margin-bottom:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="aiSaveKey()">Сохранить ключ</button>
+        <p style="font-size:11.5px;color:var(--text-mut);margin-top:8px;line-height:1.5;">Ключ Anthropic API (console.anthropic.com). Хранится только в вашем браузере.</p>
+      </div>
+      <div class="card card-pad">
+        <div class="card-title" style="margin-bottom:10px;">📖 Инструкция для нового сотрудника</div>
+        <button class="btn btn-ghost btn-sm" onclick="aiShowGuide()" style="width:100%;">Показать порядок оформления курса</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
 <div class="section-page" id="section-documents">
 
 
@@ -3246,7 +3283,7 @@ async function d_init() {
     d_sb = supabase.createClient(d_url, d_key);
     const [cs, ts, ps] = await Promise.all([
       d_sb.from('courses').select('*').order('created_at', {ascending: false}),
-      d_sb.from('dg_templates').select('id,name,type,placeholders,storage_path,b64'),
+      d_sb.from('dg_templates').select('id,name,type,placeholders,storage_path,has_b64'),
       d_sb.from('people').select('id,name_nom,name_gen,name_dat,initials,position_nom,position_gen,position_dat,academic_degree,academic_title,department,poa_number,poa_date,passport,snils,inn,address,bank,account,birthday,category')
     ]);
     d_courses = cs.data || [];
@@ -3581,7 +3618,15 @@ function d_buildSpecData(d_spec) {
 // ═══════════════════════════════════════════════════════════
 async function d_fetchTemplateFile(d_tmpl) {
   if (d_tmpl._ab) return d_tmpl._ab;
+  // Ленивая загрузка: b64 качается из БД только когда нужен файл
   if (d_tmpl.b64) {
+    d_tmpl._ab = d_b64ToAb(d_tmpl.b64);
+    return d_tmpl._ab;
+  }
+  if (d_tmpl.has_b64) {
+    const { data, error } = await d_sb.from('dg_templates').select('b64').eq('id', d_tmpl.id).single();
+    if (error || !data?.b64) throw new Error('Не удалось загрузить шаблон: ' + (error?.message || 'пусто'));
+    d_tmpl.b64 = data.b64;
     d_tmpl._ab = d_b64ToAb(d_tmpl.b64);
     return d_tmpl._ab;
   }
@@ -3936,7 +3981,7 @@ async function uploadTemplates(event) {
   }
 
   // Перезагружаем список шаблонов
-  const { data } = await d_sb.from('dg_templates').select('id,name,type,placeholders,storage_path,b64');
+  const { data } = await d_sb.from('dg_templates').select('id,name,type,placeholders,storage_path,has_b64');
   d_templates = data || [];
   // Сбрасываем кэш загруженных файлов
   d_templates.forEach(t => delete t._ab);
@@ -4116,5 +4161,138 @@ var d_renderTemplates = renderTemplates;</script>
     </div>
   </div>
 </div>
+
+<script>
+// ═══════════ ИИ-ПОМОЩНИК ═══════════
+const AI_SYSTEM = `Ты — опытный директор Института дополнительного образования Поволжского ГУФКСиТ (Казань), профессионал в делопроизводстве ДПО. Отвечаешь кратко, по делу, на русском.
+
+КОНТЕКСТ ПЛАТФОРМЫ: веб-платформа ИДО автоматизирует документооборот курсов повышения квалификации (ПК) и профессиональной переподготовки (ПП). Разделы: Люди (справочник с ФИО в падежах), Курсы (карточки со слушателями, специалистами ГПХ, комиссией ИАК), Документы (генерация из docx-шаблонов с метками {{МЕТКА}}).
+
+ПОРЯДОК ОФОРМЛЕНИЯ КУРСА (стандарт ИДО):
+1. Служебная записка о брони номеров приказов → проректору по учебной работе
+2. Приказ о проведении курсов (с приложениями: стоимость, сроки сессий, список слушателей)
+3. Приказ об организации (смета, оплата специалистов)
+4. Договоры с обучающимися (по одному на слушателя) + справки-вызовы для работающих
+5. Приказ об утверждении тем ИАР (для ПП с итоговой аттестационной работой)
+6. Приказ о создании ИАК (председатель — внешний, зам, члены, секретарь)
+7. Приказ о допуске к итоговой аттестации
+8. Договоры ГПХ со специалистами + акты выполнения услуг
+9. Приказ об отчислении с выдачей дипломов/удостоверений
+Отчисление по заявлению — отдельным приказом в любой момент.
+
+ФОРМА ОБУЧЕНИЯ всегда: «очная с применением дистанционных образовательных технологий». ПП от 250 часов → диплом о профессиональной переподготовке. ПК от 16 часов → удостоверение о повышении квалификации.
+
+Если просят составить документ — выдай полный официальный текст в стиле приказов вуза (шапка ФГБОУ ВО «Поволжский ГУФКСиТ», ПРИКАЗЫВАЮ, пункты, подпись ректора Р.Т. Бурганова). Документ оберни в блок начинающийся строкой [ДОКУМЕНТ] и заканчивающийся [/ДОКУМЕНТ] — платформа предложит скачать его как docx.`;
+
+let aiHistory = [];
+
+function aiSaveKey() {
+  const k = document.getElementById('ai-key').value.trim();
+  if (k) { localStorage.setItem('ido-ai-key', k); alert('Ключ сохранён'); }
+}
+
+function aiMsg(role, html) {
+  const box = document.getElementById('ai-chat');
+  const d = document.createElement('div');
+  d.style.cssText = role === 'user'
+    ? 'align-self:flex-end;background:var(--primary);color:#fff;padding:10px 14px;border-radius:12px 12px 4px 12px;max-width:85%;white-space:pre-wrap;font-size:13.5px;'
+    : 'align-self:flex-start;background:var(--surface-2);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:90%;white-space:pre-wrap;font-size:13.5px;line-height:1.55;';
+  d.innerHTML = html;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+  return d;
+}
+
+async function aiSend() {
+  const inp = document.getElementById('ai-input');
+  const q = inp.value.trim();
+  if (!q) return;
+  const key = localStorage.getItem('ido-ai-key');
+  if (!key) { alert('Сначала сохраните ключ API (справа)'); return; }
+  inp.value = '';
+  aiMsg('user', q.replace(/</g,'&lt;'));
+  aiHistory.push({role:'user', content:q});
+  const btn = document.getElementById('ai-send-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const thinking = aiMsg('ai', '⏳ Думаю...');
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        system: AI_SYSTEM,
+        messages: aiHistory.slice(-12)
+      })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message || 'Ошибка API');
+    const text = (data.content || []).map(b => b.text || '').join('');
+    aiHistory.push({role:'assistant', content:text});
+    // Извлекаем документ если есть
+    const m = text.match(/\[ДОКУМЕНТ\]([\s\S]*?)\[\/ДОКУМЕНТ\]/);
+    let shown = text.replace(/</g,'&lt;');
+    thinking.innerHTML = shown.replace(/\[ДОКУМЕНТ\]|\[\/ДОКУМЕНТ\]/g, '');
+    if (m) {
+      const docText = m[1].trim();
+      const btn2 = document.createElement('button');
+      btn2.className = 'btn btn-primary btn-sm';
+      btn2.style.marginTop = '10px';
+      btn2.textContent = '⬇ Скачать как .docx';
+      btn2.onclick = () => aiDownloadDocx(docText);
+      thinking.appendChild(btn2);
+    }
+  } catch (e) {
+    thinking.innerHTML = '❌ ' + e.message.replace(/</g,'&lt;') + (e.message.includes('Failed to fetch') ? '<br><small>Проверьте интернет/VPN — api.anthropic.com может быть недоступен без VPN.</small>' : '');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '➤';
+  }
+}
+
+async function aiDownloadDocx(text) {
+  // Простой text → docx
+  const paras = text.split('\n').map(line => {
+    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="24"/></w:rPr><w:t xml:space="preserve">${esc}</w:t></w:r></w:p>`;
+  }).join('');
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="850" w:bottom="1134" w:left="1701"/></w:sectPr></w:body></w:document>`;
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  zip.file('word/document.xml', docXml);
+  const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  saveAs(blob, 'Документ_ИИ.docx');
+}
+
+function aiShowGuide() {
+  aiMsg('ai', `<b>📖 Порядок оформления курса ИДО (шаг за шагом)</b>
+
+1️⃣ <b>Люди</b> — проверьте что в справочнике есть: ректор/подписант с доверенностью, директор ИДО, гл. бухгалтер, проректоры, специалисты ГПХ с реквизитами.
+
+2️⃣ <b>Курсы → Создать курс</b> — заполните: название, тип (ПП/ПК), даты, часы, стоимость (+прописью), № основного приказа, установочную сессию.
+
+3️⃣ <b>Слушатели</b> — скачайте шаблон Excel → заполните → загрузите. ФИО просклоняются автоматически.
+
+4️⃣ <b>Специалисты ГПХ</b> — добавьте из справочника: роль, часы, ставка, № договора ГПХ.
+
+5️⃣ <b>Комиссия ИАК</b> — председатель (внешний), зам, 2-3 члена, секретарь.
+
+6️⃣ <b>Документы → Генерация</b> — выберите курс, проверьте тип программы, нажмите «Предпросмотр» (1 документ), проверьте в Word, затем «Создать все» → ZIP.
+
+7️⃣ Печать → подпись → сканы в номенклатуру дел ИДО.
+
+<i>Хронология приказов: служебка на бронь → о проведении → об организации → договоры слушателей → темы ИАР → создание ИАК → допуск к ИА → ГПХ+акты → отчисление с выдачей документов.</i>`);
+}
+
+// Автозаполнение ключа при открытии
+(function(){ const k = localStorage.getItem('ido-ai-key'); if(k) { const el = document.getElementById('ai-key'); if(el) el.value = k; } })();
+</script>
 </body>
 </html>
