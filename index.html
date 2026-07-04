@@ -1595,6 +1595,19 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
     <div class="card-title" style="margin-bottom: 16px;">⚙️ Параметры генерации</div>
     <div class="row-2">
       <div class="fld">
+        <label>Тип программы</label>
+        <select class="sel" id="g-program-type">
+          <option value="pp">Профессиональная переподготовка</option>
+          <option value="pk">Повышение квалификации</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label>Вид выдаваемого документа</label>
+        <input class="inp" id="g-doc-vid" placeholder="автоматически по типу программы">
+      </div>
+    </div>
+    <div class="row-2">
+      <div class="fld">
         <label>Начальный № приказа</label>
         <input class="inp" type="number" id="g-ord-start" placeholder="будет авто-генерироваться">
       </div>
@@ -3223,8 +3236,8 @@ function d_detectFemaleByName(fullName) {
 // SUPABASE
 // ═══════════════════════════════════════════════════════════
 async function d_init() {
-  const d_url = localStorage.getItem('ido-d_sb-url');
-  const d_key = localStorage.getItem('ido-d_sb-key');
+  const d_url = localStorage.getItem('ido-sb-url');
+  const d_key = localStorage.getItem('ido-sb-key');
   if (!d_url || !d_key) {
     alert('База данных не подключена. Откройте справочник людей и подключите Supabase.');
     return;
@@ -3292,6 +3305,10 @@ async function d_onCourseChange() {
   // Default values
   document.getElementById('g-ord-start').value = d_currentCourse.main_order_number || '';
   document.getElementById('g-doc-date').value = d_currentCourse.main_order_date || new Date().toISOString().slice(0,10);
+  const d_ptSel = document.getElementById('g-program-type');
+  if (d_ptSel) d_ptSel.value = d_currentCourse.type || 'pp';
+  const d_vidEl = document.getElementById('g-doc-vid');
+  if (d_vidEl) d_vidEl.value = d_currentCourse.document_type || '';
 }
 
 async function d_loadCourseData() {
@@ -3414,59 +3431,55 @@ function d_buildCourseData() {
   const d_docDate = d_fmtRus(document.getElementById('g-doc-date').value || d_c.main_order_date);
   const d_orderNum = document.getElementById('g-ord-start').value || d_c.main_order_number || '';
 
-  // Поиск ИАК по ролям
-  const d_comm = d_courseData.commission.map(d_m => ({...m, d_person: d_people.find(d_p => p.id === m.person_id)}));
-  const d_findRole = (role) => {
-    const d_m = d_comm.find(x => x.role === role);
-    if (!d_m || !m.person) return '';
-    const d_p = m.person;
-    const d_regalia = [p.academic_degree, p.academic_title].filter(Boolean).join(', ');
-    return `${p.name_nom}${d_regalia ? ', ' + d_regalia : ''}${p.position_nom ? ', ' + p.position_nom : ''}${p.department ? ', ' + p.department : ''}`;
+  const d_comm = d_courseData.commission.map(d_m => ({...d_m, person: d_people.find(d_p => d_p.id === d_m.person_id)}));
+  const d_roleStr = (d_p) => {
+    if (!d_p) return '';
+    const d_reg = [d_p.academic_degree, d_p.academic_title].filter(Boolean).join(', ');
+    return `${d_p.name_nom}${d_reg ? ', ' + d_reg : ''}${d_p.position_nom ? ', ' + d_p.position_nom : ''}${d_p.department ? ', ' + d_p.department : ''}`;
   };
-  const d_findAllRoles = (role) => d_comm.filter(x => x.role === role).map(d_m => {
-    const d_p = m.person; if (!d_p) return '';
-    const d_regalia = [p.academic_degree, p.academic_title].filter(Boolean).join(', ');
-    return `${p.name_nom}${d_regalia ? ', ' + d_regalia : ''}${p.position_nom ? ', ' + p.position_nom : ''}${p.department ? ', ' + p.department : ''}`;
-  });
+  const d_findRole = (role) => { const m = d_comm.find(x => x.role === role); return m ? d_roleStr(m.person) : ''; };
+  const d_findAllRoles = (role) => d_comm.filter(x => x.role === role).map(m => d_roleStr(m.person)).filter(Boolean);
   const d_members = d_findAllRoles('member');
 
-  // Главный бухгалтер из справочника (по должности)
-  const d_buh = d_people.find(d_p => /бухгалтер/i.test(p.position_nom || ''));
-  // Директор ИДО
-  const d_dirIDO = d_people.find(d_p => /директор.*идо/i.test(p.position_nom || '') || /директор.*институт.*доп/i.test(p.position_nom || ''));
-  // Проректор по учебной работе (для служебной записки)
-  const d_prorectorUch = d_people.find(d_p => /проректор.*учеб/i.test(p.position_nom || ''));
+  const d_buh = d_people.find(d_p => /бухгалтер/i.test(d_p.position_nom || ''));
+  const d_dirIDO = d_people.find(d_p => /директор.*идо/i.test(d_p.position_nom || '') || /директор.*институт.*доп/i.test(d_p.position_nom || ''));
+  const d_prorectorUch = d_people.find(d_p => /проректор.*учеб/i.test(d_p.position_nom || ''));
+  const d_firstProrector = d_people.find(d_p => /первый проректор/i.test(d_p.position_nom || ''));
+  const d_nachPrav = d_people.find(d_p => /начальник.*правов/i.test(d_p.position_nom || '') || /управлени.*правов/i.test(d_p.position_nom || ''));
+
+  const d_typeSel = document.getElementById('g-program-type');
+  const d_courseType = d_typeSel ? d_typeSel.value : (d_c.type || 'pp');
+  const d_isPK = d_courseType === 'pk';
+  const d_tipRod = d_isPK ? 'повышения квалификации' : 'профессиональной переподготовки';
+  const d_tipIm = d_isPK ? 'повышение квалификации' : 'профессиональная переподготовка';
+  const d_tipPred = d_isPK ? 'повышении квалификации' : 'профессиональной переподготовке';
+  const d_vidInput = document.getElementById('g-doc-vid');
+  const d_vid = (d_vidInput && d_vidInput.value.trim()) || d_c.document_type || (d_isPK ? 'удостоверение о повышении квалификации' : 'диплом о профессиональной переподготовке');
+  const d_vidMn = d_isPK ? 'удостоверений о повышении квалификации' : 'дипломов о профессиональной переподготовке';
 
   const d_data = {
-    // Программа курса
     ПРОГРАММА: d_c.name || '',
-    ТИП_КУРСА_РОД: d_c.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки',
-    ТИП_КУРСА_ИМ: d_c.type === 'pk' ? 'повышение квалификации' : 'профессиональная переподготовка',
-    ТИП_КУРСА_ПРЕД: d_c.type === 'pk' ? 'повышении квалификации' : 'профессиональной переподготовке',
-    ДАТА_НАЧАЛА: d_startDate,
-    ДАТА_ОКОНЧАНИЯ: d_endDate,
+    ТИП_РОД: d_tipRod, ТИП_ИМ: d_tipIm, ТИП_ПРЕД: d_tipPred,
+    ТИП_КУРСА_РОД: d_tipRod, ТИП_КУРСА_ИМ: d_tipIm, ТИП_КУРСА_ПРЕД: d_tipPred,
+    ВИД: d_vid, ВИД_МН: d_vidMn,
+    ДАТА_НАЧАЛА: d_startDate, ДАТА_ОКОНЧАНИЯ: d_endDate,
     ЧАСЫ: String(d_c.hours || 0),
-    ФОРМА: d_c.form || '',
-    ВИД: d_c.document_type || '',
+    ФОРМА: d_c.form || 'очная с применением дистанционных образовательных технологий',
     КВАЛИФИКАЦИЯ: d_c.qualification || '',
     УЧ_ГОД: d_c.academic_year || '',
     ГОД: d_c.academic_year ? d_c.academic_year.split('-')[1] || d_c.academic_year : new Date().getFullYear(),
-
-    // Документы
-    НОМЕР_ПРИКАЗА: d_orderNum,
-    ДАТА: d_docDate,
+    НОМЕР_ПРИКАЗА: d_orderNum, ДАТА: d_docDate,
     НОМ_ОСНОГО_ПРИКАЗА: d_c.main_order_number || '',
     НОМЕР_ОСН_ПРИКАЗА: d_c.main_order_number || '',
-
-    // Финансы
+    НОМЕР_ПРИКАЗА_ОРГ: d_c.org_order_number || '',
     СТОИМОСТЬ: d_c.price ? Number(d_c.price).toLocaleString('ru-RU') : '',
     СТОИМОСТЬ_ПРОПИСЬ: d_c.price_words || '',
-
-    // Сессия
     ДАТА_СЕССИИ_НАЧ: d_fmtRus(d_c.session_start_date),
     ДАТА_СЕССИИ_КОН: d_fmtRus(d_c.session_end_date),
-
-    // Подписант
+    СЕССИЯ_УСТ_НАЧ: d_fmtRus(d_c.session_start_date),
+    СЕССИЯ_УСТ_КОН: d_fmtRus(d_c.session_end_date),
+    СЕССИЯ_1_НАЧ: '', СЕССИЯ_1_КОН: '', СЕССИЯ_2_НАЧ: '', СЕССИЯ_2_КОН: '',
+    СЕССИЯ_3_НАЧ: '', СЕССИЯ_3_КОН: '', АТТЕСТАЦИЯ_НАЧ: '', АТТЕСТАЦИЯ_КОН: '',
     ПОДПИСАНТ: d_signer?.initials || '',
     ИНИЦИАЛЫ_ПОДП: d_signer?.initials || '',
     ДОЛЖНОСТЬ_ПОДП: d_signer?.position_nom || 'Ректор',
@@ -3476,74 +3489,68 @@ function d_buildCourseData() {
     ФИО_ПОДП_ДАТ: d_signer?.name_dat || '',
     НОМ_ДОВЕРЕН: d_signer?.poa_number || '',
     ДАТА_ДОВЕРЕН: d_fmtRus(d_signer?.poa_date) || '',
-
-    // Учреждение
     УЧРЕЖДЕНИЕ: 'ФГБОУ ВО "Поволжский ГУФКСиТ"',
     ПОДРАЗДЕЛЕНИЕ: 'Институт дополнительного образования',
     ГОРОД: 'Казань',
-
-    // ИАК
     ПРЕДСЕДАТЕЛЬ_ИАК: d_findRole('chair'),
     ЗАМ_ПРЕДСЕДАТЕЛЯ_ИАК: d_findRole('deputy'),
-    ЧЛЕН_ИАК_1: d_members[0] || '',
-    ЧЛЕН_ИАК_2: d_members[1] || '',
-    ЧЛЕН_ИАК_3: d_members[2] || '',
+    ЧЛЕН_ИАК_1: d_members[0] || '', ЧЛЕН_ИАК_2: d_members[1] || '', ЧЛЕН_ИАК_3: d_members[2] || '',
     СЕКРЕТАРЬ_ИАК: d_findRole('secretary'),
-    // Члены ИАК единым списком (для приказа ИАК) — каждый с новой строки через тире
     ЧЛЕНЫ_ИАК: d_members.length ? d_members.map(d_m => '- ' + d_m + ';').join('\n').replace(/;$/, '.') : '',
-
-    // Доп. лица
+    ПЕРВЫЙ_ПРОРЕКТОР: d_firstProrector?.initials || 'А.Р. Шарапов',
+    НАЧ_ПРАВ: d_nachPrav?.initials || 'А.Р. Зайнуллин',
+    ПРОРЕКТОР_УЧ: d_prorectorUch?.initials || 'А.В. Павлова',
+    ПРОРЕКТОР_ВИН: 'Павлову А.В.',
     ГЛАВ_БУХ: d_buh?.initials || '',
     ДИРЕКТОР_ИДО: d_dirIDO?.initials || '',
-    ПРОРЕКТОР: d_people.find(d_p => /проректор.*учеб/i.test(p.position_nom || ''))?.name_dat || '',
-    ОТВ_ИСПОЛНИТЕЛЬ: d_signer?.initials ? `${d_signer.initials}, тел.: 294-90-08` : '',
-    // Адресат служебной записки — проректор по учебной работе в дательном падеже (звательно)
+    ПРОРЕКТОР: d_prorectorUch?.name_dat || '',
+    ОТВ_ИСПОЛНИТЕЛЬ: d_dirIDO?.initials ? `${d_dirIDO.initials}, тел.: 294-90-08` : '',
     АДРЕСАТ: d_prorectorUch?.name_nom ? d_makeVocative(d_prorectorUch.name_nom) : 'Уважаемый коллега',
-    // Основание полномочий подписанта: доверенность или Устав
     ОСНОВАНИЕ_ПОДП: d_signer?.poa_number
       ? `действующего на основании доверенности № ${d_signer.poa_number}${d_signer.poa_date ? ' от ' + d_fmtRus(d_signer.poa_date) : ''}`
       : 'действующего на основании Устава',
   };
-
-  // Заполняем ФИО_1..ФИО_30 списком слушателей
-  d_courseData.enrollments.forEach((e, i) => {
-    d_data[`ФИО_${i + 1}`] = e.full_name;
-  });
-  for (let i = d_courseData.enrollments.length + 1; i <= 30; i++) {
-    d_data[`ФИО_${i}`] = ''; // пустые для удаления строк
-  }
-
+  d_courseData.enrollments.forEach((e, i) => { d_data[`ФИО_${i + 1}`] = e.full_name; });
+  for (let i = d_courseData.enrollments.length + 1; i <= 100; i++) { d_data[`ФИО_${i}`] = ''; }
   return d_data;
 }
 
 function d_buildStudentData(d_enr) {
   const d_base = d_buildCourseData();
   const d_female = d_detectFemaleByName(d_enr.full_name);
+  const d_parts = (d_enr.full_name || '').split(' ');
+  const d_init = d_parts.length >= 3 ? `${d_parts[1][0]}.${d_parts[2][0]}. ${d_parts[0]}` : (d_enr.full_name || '');
   return {
-    ...base,
+    ...d_base,
     ФИО: d_enr.full_name || '',
     ФИО_РОД: d_enr.full_name_gen || d_enr.full_name || '',
     ФИО_ДАТ: d_enr.full_name_dat || d_enr.full_name || '',
+    ИНИЦИАЛЫ_СЛУШ: d_init,
     ИМЕНУЕМЫЙ: d_female ? 'именуемая' : 'именуемый',
     ОРГАНИЗАЦИЯ: d_enr.organization || '',
     ДОЛЖНОСТЬ: d_enr.position || '',
-    EMAIL: d_enr.email || '',
-    ТЕЛЕФОН: d_enr.phone || '',
+    EMAIL: d_enr.email || '', ТЕЛЕФОН: d_enr.phone || '',
     АДРЕС: d_enr.city || d_enr.region || '',
-    ПАСПОРТ: '',
-    СНИЛС: d_enr.snils || '',
-    ИНН: d_enr.inn || '',
+    СНИЛС_СЛУШ: d_enr.snils || '', ИНН_СЛУШ: d_enr.inn || '',
+    ПАСПОРТ_СЛУШ: d_enr.passport || '',
+    ПАСПОРТ_ВЫДАН_СЛУШ: d_enr.passport_issued || '',
+    ПАСПОРТ_ДАТА_СЛУШ: d_fmtRus(d_enr.passport_date) || '',
+    ПАСПОРТ_КОД_СЛУШ: d_enr.passport_code || '',
+    ДАТА_РОЖДЕНИЯ_СЛУШ: d_fmtRus(d_enr.birthday) || '',
+    СНИЛС: d_enr.snils || '', ИНН: d_enr.inn || '',
     НОМЕР_ДОГОВОРА: d_enr.contract_number || '',
+    ДАТА_ДОГОВОРА: d_fmtRus(d_enr.contract_date) || d_base.ДАТА_НАЧАЛА || '',
     СТОИМОСТЬ: d_enr.contract_amount ? Number(d_enr.contract_amount).toLocaleString('ru-RU') : d_base.СТОИМОСТЬ,
+    СТОИМОСТЬ_ПРОПИСЬ: d_enr.contract_amount_words || d_base.СТОИМОСТЬ_ПРОПИСЬ || '',
   };
 }
 
 function d_buildSpecData(d_spec) {
   const d_base = d_buildCourseData();
-  const d_person = d_people.find(d_p => p.id === d_spec.person_id);
+  const d_person = d_people.find(d_p => d_p.id === d_spec.person_id);
   const d_femaleSpec = d_detectFemaleByName(d_person?.name_nom || '');
   return {
-    ...base,
+    ...d_base,
     ФИО_СПЕЦИАЛИСТ: d_person?.name_nom || '',
     ИНИЦИАЛЫ_СПЕЦИАЛИСТ: d_person?.initials || '',
     ИМЕНУЕМЫЙ_СПЕЦ: d_femaleSpec ? 'именуемая' : 'именуемый',
@@ -3554,12 +3561,16 @@ function d_buildSpecData(d_spec) {
     СТОИМОСТЬ_ПРОПИСЬ_ГПХ: d_spec.amount_words || '',
     НОМЕР_ДОГОВОРА_ГПХ: d_spec.gph_contract_number || '',
     ДАТА_ДОГОВОРА_ГПХ: d_fmtRus(d_spec.gph_contract_date),
+    ДАТА_АКТА: d_fmtRus(d_spec.act_date) || d_fmtRus(d_spec.service_date),
     ДАТА_УСЛУГИ: d_fmtRus(d_spec.service_date),
     ПАСПОРТ_СПЕЦИАЛИСТ: d_person?.passport || '',
+    ПАСПОРТ_ВЫДАН_СПЕЦ: d_person?.passport_issued || '',
     СНИЛС_СПЕЦИАЛИСТ: d_person?.snils || '',
     ИНН_СПЕЦИАЛИСТ: d_person?.inn || '',
     АДРЕС_СПЕЦИАЛИСТ: d_person?.address || '',
     БАНК_СПЕЦИАЛИСТ: d_person?.bank || '',
+    БИК_СПЕЦ: d_person?.bik || '',
+    КОРСЧЕТ_СПЕЦ: d_person?.corr_account || '',
     СЧЕТ_СПЕЦИАЛИСТ: d_person?.account || '',
     ДАТА_РОЖДЕНИЯ_СПЕЦ: d_fmtRus(d_person?.birthday),
   };
@@ -3570,14 +3581,14 @@ function d_buildSpecData(d_spec) {
 // ═══════════════════════════════════════════════════════════
 async function d_fetchTemplateFile(d_tmpl) {
   if (d_tmpl._ab) return d_tmpl._ab;
-  if (d_tmpl.storage_path) {
-    const {d_data, error} = await d_sb.storage.from('templates').download(d_tmpl.storage_path);
-    if (error) throw new Error('Не удалось загрузить шаблон: ' + error.message);
-    d_tmpl._ab = await d_data.arrayBuffer();
-    return d_tmpl._ab;
-  }
   if (d_tmpl.b64) {
     d_tmpl._ab = d_b64ToAb(d_tmpl.b64);
+    return d_tmpl._ab;
+  }
+  if (d_tmpl.storage_path) {
+    const {data, error} = await d_sb.storage.from('templates').download(d_tmpl.storage_path);
+    if (error) throw new Error('Не удалось загрузить шаблон: ' + error.message);
+    d_tmpl._ab = await data.arrayBuffer();
     return d_tmpl._ab;
   }
   throw new Error('Файл шаблона не найден');
@@ -3881,6 +3892,11 @@ function renderTemplates() {
 }
 
 async function uploadTemplates(event) {
+  if (!d_sb) {
+    const u = localStorage.getItem('ido-sb-url'), k = localStorage.getItem('ido-sb-key');
+    if (u && k) { d_sb = supabase.createClient(u, k); }
+    else { alert('База не подключена. Откройте Настройки.'); return; }
+  }
   const files = Array.from(event.target.files);
   if (!files.length) return;
   const log = document.getElementById('tmpl-log');
@@ -3902,27 +3918,10 @@ async function uploadTemplates(event) {
 
     tmplLog(`Загрузка: <b>${d_esc(file.name)}</b> → «${d_esc(tmplName)}»`, 'info');
     try {
-      // Читаем как base64
-      const b64 = await fileToB64(file);
-      // Загружаем в Storage
-      const storagePath = `${Date.now()}_${file.name.replace(/[^\w.\-]/g, '_')}`;
-      const { error: upErr } = await d_sb.storage.from('templates').upload(storagePath, file, {
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        upsert: true,
-      });
-      if (upErr) {
-        // Если Storage недоступен — сохраняем base64 в БД как фолбэк
-        tmplLog(`  Storage недоступен, сохраняем в БД...`, 'warn');
-      }
-
-      // Ищем существующий шаблон с таким именем
+      // Читаем как base64 и пишем прямо в БД (надёжнее Storage)
+      const b64 = await d_fileToB64(file);
       const existing = d_templates.find(t => (t.name||'').toLowerCase().trim() === tmplName.toLowerCase().trim());
-      const record = {
-        name: tmplName,
-        type: tmplName,
-        storage_path: upErr ? null : storagePath,
-        b64: upErr ? b64 : null,
-      };
+      const record = { name: tmplName, type: tmplName, storage_path: null, b64: b64 };
 
       if (existing) {
         await d_sb.from('dg_templates').update(record).eq('id', existing.id);
@@ -4076,7 +4075,8 @@ var d_fmtRus = fmtRus;
 
 // Алиасы
 var d_fileToB64 = fileToB64;
-var d_fixSplits = fixSplits;</script>
+var d_fixSplits = fixSplits;
+var d_renderTemplates = renderTemplates;</script>
 
 <!-- МОДАЛКА: РЕДАКТОР ШАБЛОНА -->
 <div class="overlay" id="tmpl-editor-modal">
