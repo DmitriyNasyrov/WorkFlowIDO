@@ -789,7 +789,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
       <button class="nav-item" data-section="courses" onclick="goSection('courses')">Курсы</button>
       <button class="nav-item" data-section="documents" onclick="goSection('documents')">Документы</button>
       <button class="nav-item" data-section="ai" onclick="goSection('ai')">🤖 ИИ-помощник</button>
-      <button class="nav-item" data-section="settings" onclick="goSection('settings')">Настройки</button>
+      
     </nav>
     <div class="hdr-right">
       <div class="db-pill" id="db-pill"><span class="dot"></span><span id="db-pill-txt">База не подключена</span></div>
@@ -1183,6 +1183,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
     <button class="tab" data-tab="enrollments" onclick="c_setTab('enrollments', this)">👥 Слушатели <span class="tab-badge" id="tb-enr">0</span></button>
     <button class="tab" data-tab="specialists" onclick="c_setTab('specialists', this)">👔 Специалисты ГПХ <span class="tab-badge" id="tb-spec">0</span></button>
     <button class="tab" data-tab="commission" onclick="c_setTab('commission', this)">🎓 Комиссия ИАК <span class="tab-badge" id="tb-comm">0</span></button>
+    <button class="tab" data-tab="schedule" onclick="c_setTab('schedule', this)">📅 Расписание</button>
   </div>
 
   <!-- TAB: Информация -->
@@ -1234,7 +1235,18 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
       <div id="commission-table"></div>
     </div>
   </div>
-</section>
+
+
+  <!-- TAB: Расписание -->
+  <div id="tab-schedule" class="tab-content" style="display: none;">
+    <div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 class="card-title">Расписание сессий курса</h3>
+        <button class="btn btn-ghost btn-sm" onclick="downloadScheduleImage()">⬇ Скачать как картинку</button>
+      </div>
+      <div id="schedule-timeline"></div>
+    </div>
+  </div></section>
 
 </div>
 
@@ -1359,6 +1371,26 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
             <label>Дата окончания сессии</label>
             <input class="inp" type="date" id="c-session-end">
           </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Расписание сессий курса</div>
+        <div class="row-2">
+          <div class="fld"><label>1 сессия — начало</label><input class="inp" type="date" id="c-s1-start"></div>
+          <div class="fld"><label>1 сессия — конец</label><input class="inp" type="date" id="c-s1-end"></div>
+        </div>
+        <div class="row-2">
+          <div class="fld"><label>2 сессия — начало</label><input class="inp" type="date" id="c-s2-start"></div>
+          <div class="fld"><label>2 сессия — конец</label><input class="inp" type="date" id="c-s2-end"></div>
+        </div>
+        <div class="row-2">
+          <div class="fld"><label>3 сессия — начало</label><input class="inp" type="date" id="c-s3-start"></div>
+          <div class="fld"><label>3 сессия — конец</label><input class="inp" type="date" id="c-s3-end"></div>
+        </div>
+        <div class="row-2">
+          <div class="fld"><label>Итоговая аттестация — начало</label><input class="inp" type="date" id="c-att-start"></div>
+          <div class="fld"><label>Итоговая аттестация — конец</label><input class="inp" type="date" id="c-att-end"></div>
         </div>
       </div>
 
@@ -1579,10 +1611,8 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
     </div>
     <div>
       <div class="card card-pad" style="margin-bottom:14px;">
-        <div class="card-title" style="margin-bottom:10px;">🔑 Ключ API</div>
-        <input class="inp" id="ai-key" type="password" placeholder="sk-ant-..." style="margin-bottom:8px;">
-        <button class="btn btn-ghost btn-sm" onclick="aiSaveKey()">Сохранить ключ</button>
-        <p style="font-size:11.5px;color:var(--text-mut);margin-top:8px;line-height:1.5;">Ключ Anthropic API (console.anthropic.com). Хранится только в вашем браузере.</p>
+        <div class="card-title" style="margin-bottom:10px;">🔌 Статус ИИ</div>
+        <div id="ai-status" style="font-size:12.5px;color:var(--text-mut);">Проверка настроек...</div>
       </div>
       <div class="card card-pad">
         <div class="card-title" style="margin-bottom:10px;">📖 Инструкция для нового сотрудника</div>
@@ -1747,6 +1777,10 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
 
 </div>
 <script>
+// Встроенное подключение к базе (специалисту вводить ничего не нужно)
+localStorage.setItem('ido-sb-url', 'https://hwjspuqiurzreewcgwed.supabase.co');
+localStorage.setItem('ido-sb-key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3anNwdXFpdXJ6cmVld2Nnd2VkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjMzMTUsImV4cCI6MjA5MjE5OTMxNX0.3drIxHDEffwTdepw2DYCHAc7SZTRKzZE2u21t64d224');
+
 function applyTheme(t){document.documentElement.dataset.theme=t;document.getElementById('theme-btn').textContent=t==='dark'?'☀️':'🌙';localStorage.setItem('ido-theme',t);}
 function toggleTheme(){applyTheme((document.documentElement.dataset.theme||'light')==='light'?'dark':'light');}
 applyTheme(localStorage.getItem('ido-theme')||'light');
@@ -2338,7 +2372,7 @@ async function c_connectSb() {
         <div class="empty-icon">🔌</div>
         <div class="empty-title">База данных не подключена</div>
         <div class="empty-sub">Откройте справочник людей и подключите базу там</div>
-        <a class="btn btn-primary" style="margin-top: 16px;" href="ido-platforma-step-a.html">Открыть справочник</a>
+        
       </div>`;
     return false;
   }
@@ -2379,7 +2413,7 @@ async function c_loadAll() {
         c_sb.from('course_specialists').select('course_id').in('course_id', c_courseIds),
         c_sb.from('course_commission').select('course_id').in('course_id', c_courseIds),
       ]);
-      const c_cnt = (arr) => { const c_m = new Map(); (arr || []).forEach(x => m.set(x.course_id, (m.get(x.course_id) || 0) + 1)); return c_m; };
+      const c_cnt = (arr) => { const c_m = new Map(); (arr || []).forEach(x => c_m.set(x.course_id, (c_m.get(x.course_id) || 0) + 1)); return c_m; };
       const c_enrMap = c_cnt(enr.data), specMap = c_cnt(spec.data), commMap = c_cnt(comm.data);
       c_courses.forEach(c_c => {
         c_c._enr = c_enrMap.get(c_c.id) || 0;
@@ -2452,7 +2486,8 @@ function c_openNewCourse() {
   c_currentCourse = null;
   document.getElementById('course-modal-title').textContent = 'Новый курс';
   ['c-name','c-hours','c-start','c-end','c-year','c-qual','c-price','c-price-words',
-   'c-main-ord','c-main-ord-date','c-session-start','c-session-end','c-notes',
+   'c-main-ord','c-main-ord-date','c-session-start','c-session-end',
+   'c-s1-start','c-s1-end','c-s2-start','c-s2-end','c-s3-start','c-s3-end','c-att-start','c-att-end','c-notes',
    'c-signer-name'].forEach(c_id => { const c_el = document.getElementById(c_id); if (c_el) c_el.value = ''; });
   document.getElementById('c-signer-id').value = '';
   document.getElementById('c-hours').value = 72;
@@ -2482,6 +2517,14 @@ function c_openEditCourse() {
   c_fillField('c-main-ord-date', c_c.main_order_date);
   c_fillField('c-session-start', c_c.session_start_date);
   c_fillField('c-session-end', c_c.session_end_date);
+  c_fillField('c-s1-start', c_c.session1_start);
+  c_fillField('c-s1-end', c_c.session1_end);
+  c_fillField('c-s2-start', c_c.session2_start);
+  c_fillField('c-s2-end', c_c.session2_end);
+  c_fillField('c-s3-start', c_c.session3_start);
+  c_fillField('c-s3-end', c_c.session3_end);
+  c_fillField('c-att-start', c_c.attestation_start);
+  c_fillField('c-att-end', c_c.attestation_end);
   c_fillField('c-notes', c_c.notes);
   if (c_c.signer_id) {
     const c_p = c_people.find(x => x.id === c_c.signer_id);
@@ -2515,6 +2558,14 @@ async function c_saveCourse() {
     main_order_date: c_getVal('c-main-ord-date') || null,
     session_start_date: c_getVal('c-session-start') || null,
     session_end_date: c_getVal('c-session-end') || null,
+    session1_start: c_getVal('c-s1-start') || null,
+    session1_end: c_getVal('c-s1-end') || null,
+    session2_start: c_getVal('c-s2-start') || null,
+    session2_end: c_getVal('c-s2-end') || null,
+    session3_start: c_getVal('c-s3-start') || null,
+    session3_end: c_getVal('c-s3-end') || null,
+    attestation_start: c_getVal('c-att-start') || null,
+    attestation_end: c_getVal('c-att-end') || null,
     signer_id: parseInt(c_getVal('c-signer-id')) || null,
     notes: c_getVal('c-notes') || null,
     updated_at: new Date().toISOString(),
@@ -2590,11 +2641,12 @@ function c_setTab(tab, c_btn) {
   if (c_btn) c_btn.classList.add('act');
   document.querySelectorAll('.tab-content').forEach(c_el => c_el.style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
+  if (tab === 'schedule') renderSchedule();
 }
 
 function c_renderCourseInfo() {
   const c_c = c_currentCourse;
-  const c_signer = c_c.signer_id ? c_people.find(c_p => p.id === c_c.signer_id) : null;
+  const c_signer = c_c.signer_id ? c_people.find(c_p => c_p.id === c_c.signer_id) : null;
   const c_rows = [
     ['Название программы', c_esc(c_c.name)],
     ['Тип', { pp: 'Профессиональная переподготовка', pk: 'Повышение квалификации' }[c_c.type] || ''],
@@ -3155,7 +3207,7 @@ function c_setupAutocomplete(inputId, dropdownId, hiddenId, filterFn) {
   c_input.addEventListener('input', () => {
     const c_q = c_input.value.trim().toLowerCase();
     if (!c_q) { c_dd.classList.remove('open'); c_hidden.value = ''; return; }
-    let c_matches = c_people.filter(c_p => (p.name_nom || '').toLowerCase().includes(c_q));
+    let c_matches = c_people.filter(c_p => (c_p.name_nom || '').toLowerCase().includes(c_q));
     if (filterFn) c_matches = c_matches.filter(filterFn);
     c_matches = c_matches.slice(0, 10);
     if (!c_matches.length) { c_dd.innerHTML = `<div class="ac-item">Нет совпадений</div>`; c_dd.classList.add('open'); return; }
@@ -3181,7 +3233,7 @@ function c_setupAutocomplete(inputId, dropdownId, hiddenId, filterFn) {
   });
 }
 
-c_setupAutocomplete('c-signer-name', 'c-signer-dd', 'c-signer-id', c_p => p.category === 'signer');
+c_setupAutocomplete('c-signer-name', 'c-signer-dd', 'c-signer-id', c_p => c_p.category === 'signer');
 c_setupAutocomplete('sp-person-name', 'sp-person-dd', 'sp-person-id', null);
 c_setupAutocomplete('cm-person-name', 'cm-person-dd', 'cm-person-id', null);
 
@@ -3191,6 +3243,55 @@ c_setupAutocomplete('cm-person-name', 'cm-person-dd', 'cm-person-id', null);
 function c_closeOv(c_id) { document.getElementById(c_id).classList.remove('open'); }
 function c_fillField(c_id, val) { const c_el = document.getElementById(c_id); if (c_el) c_el.value = val || ''; }
 function c_getVal(c_id) { return (document.getElementById(c_id).value || '').trim(); }
+
+// ═══════════ РАСПИСАНИЕ КУРСА ═══════════
+function renderSchedule() {
+  const el = document.getElementById('schedule-timeline');
+  const c = c_currentCourse;
+  const items = [
+    {label: 'Установочная сессия', s: c.session_start_date, e: c.session_end_date, icon: '🎬'},
+    {label: '1 сессия', s: c.session1_start, e: c.session1_end, icon: '1️⃣'},
+    {label: '2 сессия', s: c.session2_start, e: c.session2_end, icon: '2️⃣'},
+    {label: '3 сессия', s: c.session3_start, e: c.session3_end, icon: '3️⃣'},
+    {label: 'Итоговая аттестация', s: c.attestation_start, e: c.attestation_end, icon: '🎓'},
+  ].filter(i => i.s || i.e);
+
+  if (!items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📅</div><div class="empty-title">Даты сессий не заданы</div><div class="empty-sub">Добавьте даты через редактирование курса или напрямую в базе (поля session1_start и т.д.)</div></div>`;
+    return;
+  }
+
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('ru-RU', {day:'2-digit', month:'long', year:'numeric'}) : '—';
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  el.innerHTML = `<div style="position:relative;padding-left:28px;">
+    <div style="position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:var(--border);"></div>
+    ${items.map((it, i) => {
+      const start = it.s ? new Date(it.s) : null;
+      const end = it.e ? new Date(it.e) : null;
+      const isPast = end && end < today;
+      const isNow = start && end && start <= today && today <= end;
+      const dotColor = isNow ? 'var(--accent)' : isPast ? 'var(--text-mut)' : 'var(--primary)';
+      return `<div style="position:relative;padding-bottom:26px;">
+        <div style="position:absolute;left:-28px;top:2px;width:20px;height:20px;border-radius:50%;background:${dotColor};display:flex;align-items:center;justify-content:center;font-size:11px;">${isNow?'●':''}</div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:2px;">${it.icon} ${it.label}${isNow ? ' <span style=\"color:var(--accent);font-size:11px;\">— идёт сейчас</span>' : ''}</div>
+        <div style="font-size:13px;color:var(--text-mut);">${fmt(it.s)} — ${fmt(it.e)}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function downloadScheduleImage() {
+  const el = document.getElementById('schedule-timeline');
+  if (!el || !el.innerHTML.trim()) { alert('Сначала откройте вкладку Расписание'); return; }
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><meta charset="utf-8"><title>Расписание — ${c_esc(c_currentCourse.name)}</title>
+    <style>body{font-family:Arial,sans-serif;padding:30px;} h1{font-size:20px;}</style></head>
+    <body><h1>${c_esc(c_currentCourse.name)}</h1>${el.innerHTML}</body></html>`);
+  w.document.close();
+  setTimeout(() => w.print(), 300);
+}
+
 function c_esc(c_s) { return String(c_s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function fmt(d) {
   if (!d) return '—';
@@ -3359,7 +3460,7 @@ async function d_loadCourseData() {
     enrollments: d_enr.data || [],
     specialists: d_spec.data || [],
     commission: d_comm.data || [],
-    d_signer: d_currentCourse.signer_id ? d_people.find(d_p => p.id === d_currentCourse.signer_id) : null,
+    d_signer: d_currentCourse.signer_id ? d_people.find(d_p => d_p.id === d_currentCourse.signer_id) : null,
   };
 }
 
@@ -3515,8 +3616,10 @@ function d_buildCourseData() {
     ДАТА_СЕССИИ_КОН: d_fmtRus(d_c.session_end_date),
     СЕССИЯ_УСТ_НАЧ: d_fmtRus(d_c.session_start_date),
     СЕССИЯ_УСТ_КОН: d_fmtRus(d_c.session_end_date),
-    СЕССИЯ_1_НАЧ: '', СЕССИЯ_1_КОН: '', СЕССИЯ_2_НАЧ: '', СЕССИЯ_2_КОН: '',
-    СЕССИЯ_3_НАЧ: '', СЕССИЯ_3_КОН: '', АТТЕСТАЦИЯ_НАЧ: '', АТТЕСТАЦИЯ_КОН: '',
+    СЕССИЯ_1_НАЧ: d_fmtRus(d_c.session1_start), СЕССИЯ_1_КОН: d_fmtRus(d_c.session1_end),
+    СЕССИЯ_2_НАЧ: d_fmtRus(d_c.session2_start), СЕССИЯ_2_КОН: d_fmtRus(d_c.session2_end),
+    СЕССИЯ_3_НАЧ: d_fmtRus(d_c.session3_start), СЕССИЯ_3_КОН: d_fmtRus(d_c.session3_end),
+    АТТЕСТАЦИЯ_НАЧ: d_fmtRus(d_c.attestation_start), АТТЕСТАЦИЯ_КОН: d_fmtRus(d_c.attestation_end),
     ПОДПИСАНТ: d_signer?.initials || '',
     ИНИЦИАЛЫ_ПОДП: d_signer?.initials || '',
     ДОЛЖНОСТЬ_ПОДП: d_signer?.position_nom || 'Ректор',
@@ -4186,11 +4289,6 @@ const AI_SYSTEM = `Ты — опытный директор Института �
 
 let aiHistory = [];
 
-function aiSaveKey() {
-  const k = document.getElementById('ai-key').value.trim();
-  if (k) { localStorage.setItem('ido-ai-key', k); alert('Ключ сохранён'); }
-}
-
 function aiMsg(role, html) {
   const box = document.getElementById('ai-chat');
   const d = document.createElement('div');
@@ -4203,12 +4301,27 @@ function aiMsg(role, html) {
   return d;
 }
 
+let aiCfg = null;
+async function aiLoadCfg() {
+  if (aiCfg) return aiCfg;
+  try {
+    const sbc = supabase.createClient(localStorage.getItem('ido-sb-url'), localStorage.getItem('ido-sb-key'));
+    const { data } = await sbc.from('dg_settings').select('ai_provider,ai_model,ai_key,ai_url').limit(1).single();
+    aiCfg = data || {};
+  } catch(e) { aiCfg = {}; }
+  const st = document.getElementById('ai-status');
+  if (st) st.innerHTML = aiCfg.ai_key
+    ? `✅ Подключено: <b>${(aiCfg.ai_provider||'anthropic')}</b> / ${(aiCfg.ai_model||'')}`
+    : '⚠️ ИИ не настроен. Администратор должен заполнить ai_key в таблице dg_settings (Supabase).';
+  return aiCfg;
+}
+
 async function aiSend() {
   const inp = document.getElementById('ai-input');
   const q = inp.value.trim();
   if (!q) return;
-  const key = localStorage.getItem('ido-ai-key');
-  if (!key) { alert('Сначала сохраните ключ API (справа)'); return; }
+  const cfg = await aiLoadCfg();
+  if (!cfg.ai_key) { alert('ИИ не настроен администратором (ai_key в dg_settings пуст)'); return; }
   inp.value = '';
   aiMsg('user', q.replace(/</g,'&lt;'));
   aiHistory.push({role:'user', content:q});
@@ -4216,29 +4329,33 @@ async function aiSend() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   const thinking = aiMsg('ai', '⏳ Думаю...');
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        system: AI_SYSTEM,
-        messages: aiHistory.slice(-12)
-      })
-    });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error.message || 'Ошибка API');
-    const text = (data.content || []).map(b => b.text || '').join('');
+    let text = '';
+    const provider = (cfg.ai_provider || 'anthropic').toLowerCase();
+    if (provider === 'anthropic') {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','x-api-key':cfg.ai_key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({model: cfg.ai_model || 'claude-sonnet-4-6', max_tokens: 4000, system: AI_SYSTEM, messages: aiHistory.slice(-12)})
+      });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error.message || 'Ошибка API');
+      text = (data.content || []).map(b => b.text || '').join('');
+    } else {
+      // OpenAI-совместимый API (OpenAI, DeepSeek, YandexGPT-прокси, GigaChat-прокси и т.д.)
+      const base = cfg.ai_url || 'https://api.openai.com/v1';
+      const resp = await fetch(base.replace(/\/$/,'') + '/chat/completions', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Authorization':'Bearer ' + cfg.ai_key},
+        body: JSON.stringify({model: cfg.ai_model || 'gpt-4o', max_tokens: 4000,
+          messages: [{role:'system', content: AI_SYSTEM}, ...aiHistory.slice(-12)]})
+      });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error.message || 'Ошибка API');
+      text = data.choices?.[0]?.message?.content || '';
+    }
     aiHistory.push({role:'assistant', content:text});
-    // Извлекаем документ если есть
     const m = text.match(/\[ДОКУМЕНТ\]([\s\S]*?)\[\/ДОКУМЕНТ\]/);
-    let shown = text.replace(/</g,'&lt;');
-    thinking.innerHTML = shown.replace(/\[ДОКУМЕНТ\]|\[\/ДОКУМЕНТ\]/g, '');
+    thinking.innerHTML = text.replace(/</g,'&lt;').replace(/\[ДОКУМЕНТ\]|\[\/ДОКУМЕНТ\]/g, '');
     if (m) {
       const docText = m[1].trim();
       const btn2 = document.createElement('button');
@@ -4249,7 +4366,7 @@ async function aiSend() {
       thinking.appendChild(btn2);
     }
   } catch (e) {
-    thinking.innerHTML = '❌ ' + e.message.replace(/</g,'&lt;') + (e.message.includes('Failed to fetch') ? '<br><small>Проверьте интернет/VPN — api.anthropic.com может быть недоступен без VPN.</small>' : '');
+    thinking.innerHTML = '❌ ' + e.message.replace(/</g,'&lt;');
   } finally {
     btn.disabled = false; btn.innerHTML = '➤';
   }
