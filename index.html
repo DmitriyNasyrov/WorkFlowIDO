@@ -2350,7 +2350,7 @@ async function c_connectSb() {
     await c_loadAll();
     return true;
   } catch (c_e) {
-    document.getElementById('db-pill-txt').textContent = 'Ошибка: ' + e.message.slice(0, 40);
+    document.getElementById('db-pill-txt').textContent = 'Ошибка: ' + c_e.message.slice(0, 40);
     return false;
   }
 }
@@ -2499,7 +2499,7 @@ async function c_saveCourse() {
   if (!c_name) { alert('Введите название курса'); return; }
 
   const c_data = {
-    c_name,
+    name: c_name,
     type: c_getVal('c-type'),
     status: c_getVal('c-status'),
     hours: parseInt(c_getVal('c-hours')) || 0,
@@ -2529,7 +2529,7 @@ async function c_saveCourse() {
       if (error) throw error;
       Object.assign(c_currentCourse, c_data);
     } else {
-      const { c_data: ins, error } = await c_sb.from('courses').insert(c_data).select().single();
+      const { data: ins, error } = await c_sb.from('courses').insert(c_data).select().single();
       if (error) throw error;
       c_currentCourse = ins;
       c_currentCourse._enr = 0; c_currentCourse._spec = 0; c_currentCourse._comm = 0;
@@ -2538,7 +2538,7 @@ async function c_saveCourse() {
     await c_loadAll();
     if (c_currentCourse) c_openCourse(c_currentCourse.id);
   } catch (c_e) {
-    alert('Ошибка: ' + e.message);
+    alert('Ошибка: ' + c_e.message);
   } finally {
     c_btn.innerHTML = 'Сохранить'; c_btn.disabled = false;
   }
@@ -2552,7 +2552,7 @@ async function c_deleteCourse() {
     c_currentCourse = null;
     c_goToList();
     await c_loadAll();
-  } catch (c_e) { alert('Ошибка: ' + e.message); }
+  } catch (c_e) { alert('Ошибка: ' + c_e.message); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2721,7 +2721,7 @@ async function c_saveEnrollment() {
     c_closeOv('modal-enroll');
     await c_loadCourseTabs();
     await c_loadAll();
-  } catch (c_e) { alert('Ошибка: ' + e.message); }
+  } catch (c_e) { alert('Ошибка: ' + c_e.message); }
 }
 
 async function c_deleteEnrollment() {
@@ -2972,7 +2972,7 @@ function c_importStudentsFromExcel(event) {
       await c_loadAll();
       alert(`✅ Добавлено ${c_toInsert.length} слушателей с автоматическим склонением ФИО`);
     } catch (c_e) {
-      alert('Ошибка импорта: ' + e.message);
+      alert('Ошибка импорта: ' + c_e.message);
       console.error(c_e);
     }
   };
@@ -3073,7 +3073,7 @@ async function c_saveSpecialist() {
     c_closeOv('modal-spec');
     await c_loadCourseTabs();
     await c_loadAll();
-  } catch (c_e) { alert('Ошибка: ' + e.message); }
+  } catch (c_e) { alert('Ошибка: ' + c_e.message); }
 }
 
 async function c_deleteSpecialist() {
@@ -3134,7 +3134,7 @@ async function c_saveCommissionMember() {
     c_closeOv('modal-comm');
     await c_loadCourseTabs();
     await c_loadAll();
-  } catch (c_e) { alert('Ошибка: ' + e.message); }
+  } catch (c_e) { alert('Ошибка: ' + c_e.message); }
 }
 
 async function c_removeCommissionMember(c_id) {
