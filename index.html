@@ -993,6 +993,53 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
         </div>
       </div>
 
+      <!-- Категория для расчёта ставки в смете -->
+      <div class="section">
+        <div class="section-title">Категория для расчёта почасовой ставки (смета)</div>
+        <div class="row-3">
+          <div class="fld">
+            <label>Категория должности</label>
+            <select class="sel" id="p-rate-position">
+              <option value="">— не задано —</option>
+              <option value="преподаватель">Преподаватель</option>
+              <option value="старший преподаватель">Старший преподаватель</option>
+              <option value="доцент">Доцент</option>
+              <option value="профессор">Профессор</option>
+              <option value="специалист">Специалист (штат/руководство)</option>
+            </select>
+          </div>
+          <div class="fld">
+            <label>Учёная степень (для ставки)</label>
+            <select class="sel" id="p-rate-degree">
+              <option value="">— нет —</option>
+              <option value="без степени">Без степени</option>
+              <option value="кандидат наук">Кандидат наук</option>
+              <option value="доктор наук">Доктор наук</option>
+            </select>
+          </div>
+          <div class="fld">
+            <label>Учёное звание (для ставки)</label>
+            <select class="sel" id="p-rate-title">
+              <option value="">— нет —</option>
+              <option value="без звания">Без звания</option>
+              <option value="доцент">Доцент</option>
+              <option value="профессор">Профессор</option>
+            </select>
+          </div>
+        </div>
+        <div class="fld" id="p-rate-specialist-wrap" style="display:none;">
+          <label>Роль специалиста (для ставки)</label>
+          <select class="sel" id="p-rate-specialist-role">
+            <option value="">— не задано —</option>
+            <option value="начальник отдела/зам.директора/директор">Начальник отдела / зам.директора / директор</option>
+            <option value="проректор">Проректор</option>
+            <option value="ведущий специалист">Ведущий специалист</option>
+            <option value="специалист 1 категории">Специалист 1 категории</option>
+          </select>
+        </div>
+        <p class="helper-text">Эти поля используются только для автоматического подбора ставки почасовой оплаты в смете курса — не влияют на другие документы.</p>
+      </div>
+
       <!-- Контакты -->
       <div class="section">
         <div class="section-title">Контакты</div>
@@ -1161,6 +1208,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
     <button class="tab" data-tab="specialists" onclick="Courses.setTab('specialists', this)">👔 Специалисты ГПХ <span class="tab-badge" id="tb-spec">0</span></button>
     <button class="tab" data-tab="commission" onclick="Courses.setTab('commission', this)">🎓 Комиссия ИАК <span class="tab-badge" id="tb-comm">0</span></button>
     <button class="tab" data-tab="schedule" onclick="Courses.setTab('schedule', this)">📅 Расписание</button>
+    <button class="tab" data-tab="smeta" onclick="Courses.setTab('smeta', this)">💰 Смета</button>
   </div>
 
   <!-- TAB: Информация -->
@@ -1223,11 +1271,164 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
       </div>
       <div id="schedule-timeline"></div>
     </div>
+  </div>
+
+  <!-- TAB: Смета -->
+  <div id="tab-smeta" class="tab-content" style="display: none;">
+    <div class="card card-pad" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div class="filter-tabs">
+          <button class="filter-tab act" data-smode="plan" onclick="Courses.setSmetaMode('plan', this)">Плановая</button>
+          <button class="filter-tab" data-smode="final" onclick="Courses.setSmetaMode('final', this)">Финальная</button>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="font-size:12.5px; color:var(--text-mut); display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="smeta-nds" onchange="Courses.toggleNds(this.checked)"> НДС
+          </label>
+          <button class="btn btn-ghost btn-sm" onclick="Courses.downloadSmeta()">⬇ Смета .docx</button>
+          <button class="btn btn-ghost btn-sm" onclick="Courses.downloadKalkulyaciya()">⬇ Калькуляция .docx</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:14px;">
+      <div class="card-title" style="margin-bottom:12px;">Плановая численность (для плановой сметы)</div>
+      <div class="row-2">
+        <div class="fld">
+          <label>Ожидаемое число слушателей</label>
+          <input class="inp" type="number" id="smeta-planned-capacity" onchange="Courses.saveSmetaSettings()">
+        </div>
+        <div class="fld">
+          <label>Фактически (для финальной сметы)</label>
+          <input class="inp" type="number" id="smeta-actual-count" readonly style="background:var(--surface-2);">
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-head">
+        <h3 class="card-title">Оплата преподавателей и специалистов</h3>
+        <button class="btn btn-primary btn-sm" onclick="Courses.openAddSmetaRow()">＋ Добавить</button>
+      </div>
+      <div id="smeta-rows-table"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-head">
+        <h3 class="card-title">Прочие расходы (проезд, проживание, раздатка, ГСМ)</h3>
+        <button class="btn btn-primary btn-sm" onclick="Courses.openAddExpense()">＋ Добавить</button>
+      </div>
+      <div id="smeta-expenses-table"></div>
+    </div>
+
+    <div class="card card-pad">
+      <h3 class="card-title" style="margin-bottom:14px;">Итоги</h3>
+      <div id="smeta-summary"></div>
+    </div>
   </div></section>
 
 </div>
 
 <!-- ═══════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════ -->
+<!-- МОДАЛКА: СТРОКА СМЕТЫ (человек + работа) -->
+<!-- ═══════════════════════════════════════ -->
+<div class="overlay" id="modal-smeta-row" onclick="if(event.target===this) Courses.closeOv('modal-smeta-row')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="smeta-row-modal-title">Добавить оплату</div>
+      <button class="modal-close" onclick="Courses.closeOv('modal-smeta-row')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <label>Человек <span class="req">*</span></label>
+        <div class="autocomplete">
+          <input class="inp" id="sm-person-name" placeholder="Начните вводить ФИО..." autocomplete="off">
+          <div class="ac-dropdown" id="sm-person-dd"></div>
+          <input type="hidden" id="sm-person-id">
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="fld">
+          <label>Тип занятости</label>
+          <select class="sel" id="sm-is-staff" onchange="Courses.updateSmetaRateHint()">
+            <option value="true">Штатный сотрудник (211)</option>
+            <option value="false">Привлечённый специалист / ГПХ (226)</option>
+          </select>
+        </div>
+        <div class="fld">
+          <label>Вид работы</label>
+          <select class="sel" id="sm-work-type" onchange="Courses.updateSmetaRateHint()">
+            <option value="учебная">Учебная (часы)</option>
+            <option value="внеучебная">Внеучебная (функц. единицы, 5500₽)</option>
+            <option value="иак">Член ИАК (часы, обычно 1200₽)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="fld">
+          <label>Плановые часы/ед.</label>
+          <input class="inp" type="number" id="sm-planned" onchange="Courses.recalcSmetaRowAmount()">
+        </div>
+        <div class="fld">
+          <label>Фактические часы/ед.</label>
+          <input class="inp" type="number" id="sm-actual" onchange="Courses.recalcSmetaRowAmount()">
+        </div>
+      </div>
+      <div class="fld">
+        <label>Ставка за час/ед., ₽ <span id="sm-rate-hint" style="font-weight:400; color:var(--text-mut);"></span></label>
+        <input class="inp" type="number" id="sm-rate" onchange="Courses.recalcSmetaRowAmount()">
+      </div>
+      <div class="fld">
+        <label>Сумма (в текущем режиме плановая/факт), ₽</label>
+        <input class="inp" id="sm-amount" readonly style="background:var(--surface-2);">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="sm-row-del-btn" onclick="Courses.deleteSmetaRow()" style="margin-right:auto; display:none;">🗑 Удалить</button>
+      <button class="btn btn-ghost" onclick="Courses.closeOv('modal-smeta-row')">Отмена</button>
+      <button class="btn btn-primary" onclick="Courses.saveSmetaRow()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- МОДАЛКА: ПРОЧИЙ РАСХОД -->
+<!-- ═══════════════════════════════════════ -->
+<div class="overlay" id="modal-expense" onclick="if(event.target===this) Courses.closeOv('modal-expense')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Добавить расход</div>
+      <button class="modal-close" onclick="Courses.closeOv('modal-expense')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <label>Категория</label>
+        <select class="sel" id="ex-category">
+          <option value="возмещение">Возмещение (проезд/проживание/аренда залов)</option>
+          <option value="раздаточный_материал">Раздаточный материал (дипломы/удостоверения)</option>
+          <option value="гсм">ГСМ</option>
+          <option value="прочее">Прочее</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label>Наименование</label>
+        <input class="inp" id="ex-name" placeholder="напр. Проезд Казань-Москва">
+      </div>
+      <div class="row-2">
+        <div class="fld"><label>Код КОСГУ</label><input class="inp" id="ex-kosgu" placeholder="222 / 226 / 340"></div>
+        <div class="fld"><label>Количество</label><input class="inp" type="number" id="ex-qty" value="1"></div>
+      </div>
+      <div class="fld"><label>Цена за единицу, ₽</label><input class="inp" type="number" id="ex-price"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="ex-del-btn" onclick="Courses.deleteExpense()" style="margin-right:auto; display:none;">🗑 Удалить</button>
+      <button class="btn btn-ghost" onclick="Courses.closeOv('modal-expense')">Отмена</button>
+      <button class="btn btn-primary" onclick="Courses.saveExpense()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <!-- МОДАЛКА: КУРС (создать / редактировать) -->
 <!-- ═══════════════════════════════════════ -->
 <div class="overlay" id="modal-course" onclick="if(event.target===this) Courses.closeOv('modal-course')">
@@ -1670,6 +1871,25 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
         <input class="inp" type="date" id="g-doc-date">
       </div>
     </div>
+
+    <details style="margin-top: 6px;">
+      <summary style="cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text-mut); padding: 6px 0;">Реквизиты для Договора с ЮЛ/ФЛ (раскрыть при необходимости)</summary>
+      <div class="row-2" style="margin-top: 10px;">
+        <div class="fld"><label>№ договора</label><input class="inp" id="g-contract-number" placeholder="напр. 45"></div>
+        <div class="fld"><label>Реквизиты вуза (банк, счёт)</label><input class="inp" id="g-univ-requisites" placeholder="заполняется один раз"></div>
+      </div>
+      <div class="fld"><label>Основание лицензии (для шапки договора)</label><input class="inp" id="g-license-basis" placeholder="лицензия №..., от..., кем выдана"></div>
+      <div class="section-title" style="margin-top:14px;">Заказчик (для Договора с ЮЛ)</div>
+      <div class="row-2">
+        <div class="fld"><label>Название организации</label><input class="inp" id="g-customer-name"></div>
+        <div class="fld"><label>Представитель (ФИО)</label><input class="inp" id="g-customer-rep"></div>
+      </div>
+      <div class="row-2">
+        <div class="fld"><label>Должность представителя</label><input class="inp" id="g-customer-rep-position"></div>
+        <div class="fld"><label>Действует на основании</label><input class="inp" id="g-customer-basis" placeholder="устава / доверенности №..."></div>
+      </div>
+      <div class="fld"><label>Реквизиты заказчика</label><input class="inp" id="g-customer-requisites" placeholder="ИНН, адрес, банк и т.д."></div>
+    </details>
   </div>
 
   <!-- Список документов -->
@@ -1957,6 +2177,11 @@ const People = (() => {
     fillField('p-degree', p.academic_degree);
     fillField('p-title', p.academic_title);
     fillField('p-employment', p.employment_type);
+    fillField('p-rate-position', p.rate_position_category);
+    fillField('p-rate-degree', p.rate_degree_category);
+    fillField('p-rate-title', p.rate_title_category);
+    fillField('p-rate-specialist-role', p.rate_specialist_role);
+    document.getElementById('p-rate-specialist-wrap').style.display = p.rate_position_category === 'специалист' ? 'block' : 'none';
     fillField('p-email', p.email);
     fillField('p-phone', p.phone);
     fillField('p-poa-num', p.poa_number);
@@ -2061,6 +2286,10 @@ const People = (() => {
       department: getVal('p-department') || null,
       academic_degree: getVal('p-degree') || null, academic_title: getVal('p-title') || null,
       employment_type: getVal('p-employment') || null,
+      rate_position_category: getVal('p-rate-position') || null,
+      rate_degree_category: getVal('p-rate-degree') || null,
+      rate_title_category: getVal('p-rate-title') || null,
+      rate_specialist_role: getVal('p-rate-specialist-role') || null,
       email: getVal('p-email') || null, phone: getVal('p-phone') || null,
       poa_number: getVal('p-poa-num') || null, poa_date: getVal('p-poa-date') || null, poa_expires: getVal('p-poa-expires') || null,
       birthday: getVal('p-birthday') || null, snils: getVal('p-snils') || null, inn: getVal('p-inn') || null,
@@ -2115,6 +2344,9 @@ const People = (() => {
 
   function init() {
     document.getElementById('p-category').addEventListener('change', toggleSections);
+    document.getElementById('p-rate-position').addEventListener('change', function() {
+      document.getElementById('p-rate-specialist-wrap').style.display = this.value === 'специалист' ? 'block' : 'none';
+    });
     loadAll();
   }
 
@@ -2404,6 +2636,7 @@ function setTab(tab, btn) {
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
   if (tab === 'schedule') renderSchedule();
+  if (tab === 'smeta') renderSmetaTab();
 }
 
 function renderCourseInfo() {
@@ -2444,7 +2677,7 @@ async function loadCourseTabs() {
     currentCourse._specialists = spec.data || [];
     currentCourse._commission = comm.data || [];
     document.getElementById('tb-enr').textContent = currentCourse._enrollments.length;
-    document.getElementById('tb-spec').textContent = currentCourse._specialists.length;
+    document.getElementById('tb-spec').textContent = (currentCourse._specialists || []).filter(s => !s.is_staff).length;
     document.getElementById('tb-comm').textContent = currentCourse._commission.length;
     renderEnrollments();
     renderSpecialists();
@@ -2798,7 +3031,7 @@ function importStudentsFromExcel(event) {
 // ═══════════════════════════════════════════════════════════
 function renderSpecialists() {
   const el = document.getElementById('specialists-table');
-  const list = currentCourse._specialists;
+  const list = (currentCourse._specialists || []).filter(s => !s.is_staff);
   if (!list.length) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">👔</div><div class="empty-title">Специалистов нет</div><div class="empty-sub">Добавьте привлечённых специалистов и преподавателей для договоров ГПХ</div></div>`;
     return;
@@ -2961,7 +3194,7 @@ async function removeCommissionMember(id) {
 // ═══════════════════════════════════════════════════════════
 // АВТО-КОМПЛИТ для выбора людей
 // ═══════════════════════════════════════════════════════════
-function setupAutocomplete(inputId, dropdownId, hiddenId, filterFn) {
+function setupAutocomplete(inputId, dropdownId, hiddenId, filterFn, onSelect) {
   const input = document.getElementById(inputId);
   const dd = document.getElementById(dropdownId);
   const hidden = document.getElementById(hiddenId);
@@ -2986,6 +3219,7 @@ function setupAutocomplete(inputId, dropdownId, hiddenId, filterFn) {
         input.value = `${p.initials || p.name_nom} · ${p.position_nom || ''}`;
         hidden.value = id;
         dd.classList.remove('open');
+        if (onSelect) onSelect(p);
       });
     });
   });
@@ -2997,6 +3231,7 @@ function setupAutocomplete(inputId, dropdownId, hiddenId, filterFn) {
 
 setupAutocomplete('c-signer-name', 'c-signer-dd', 'c-signer-id', p => p.category === 'signer');
 setupAutocomplete('sp-person-name', 'sp-person-dd', 'sp-person-id', null);
+setupAutocomplete('sm-person-name', 'sm-person-dd', 'sm-person-id', null, () => updateSmetaRateHint());
 setupAutocomplete('cm-person-name', 'cm-person-dd', 'cm-person-id', null);
 
 // ═══════════════════════════════════════════════════════════
@@ -3062,6 +3297,442 @@ function fmt(d) {
   return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+
+  // ═══════════════════════════════════════════════════════════
+  // СМЕТА — справочник ставок, расчёт, вкладка
+  // ═══════════════════════════════════════════════════════════
+  let rateTable = [];
+  let smetaSettings = {};
+  let smetaRows = [];
+  let expenses = [];
+  let smetaMode = 'plan';
+  let editingSmetaRow = null;
+  let editingExpense = null;
+  let ndsEnabled = false;
+
+  async function loadSmetaRefs() {
+    if (rateTable.length) return;
+    const [rt, st] = await Promise.all([
+      DB.client.from('rate_table').select('*'),
+      DB.client.from('dg_settings').select('*').limit(1).single(),
+    ]);
+    rateTable = rt.data || [];
+    smetaSettings = st.data || {};
+  }
+
+  function findRate(person, workType) {
+    if (workType === 'внеучебная') return 5500;
+    if (workType === 'иак') return 1200;
+    if (!person) return 0;
+    const courseType = currentCourse.type === 'pk' ? 'pk' : 'pp';
+    let row;
+    if (person.rate_position_category === 'специалист') {
+      row = rateTable.find(r => r.position_category === 'специалист' && r.specialist_role === person.rate_specialist_role);
+    } else {
+      row = rateTable.find(r =>
+        r.position_category === person.rate_position_category &&
+        r.degree_category === person.rate_degree_category &&
+        r.title_category === person.rate_title_category);
+    }
+    if (!row) return 0;
+    return (courseType === 'pk' ? row.rate_pk : row.rate_pp) || 0;
+  }
+
+  async function renderSmetaTab() {
+    await loadSmetaRefs();
+    document.getElementById('smeta-planned-capacity').value = currentCourse.planned_capacity || '';
+    document.getElementById('smeta-actual-count').value = courseData.enrollments.length;
+    document.getElementById('smeta-nds').checked = !!currentCourse.nds_enabled;
+    ndsEnabled = !!currentCourse.nds_enabled;
+    await loadSmetaRows();
+    await loadExpenses();
+    renderSmetaRows();
+    renderExpenses();
+    renderSmetaSummary();
+  }
+
+  async function loadSmetaRows() {
+    const { data } = await DB.client.from('course_specialists').select('*').eq('course_id', currentCourse.id);
+    smetaRows = data || [];
+  }
+  async function loadExpenses() {
+    const { data } = await DB.client.from('course_expenses').select('*').eq('course_id', currentCourse.id);
+    expenses = data || [];
+  }
+
+  function setSmetaMode(mode, btn) {
+    smetaMode = mode;
+    document.querySelectorAll('#tab-smeta .filter-tab').forEach(b => b.classList.remove('act'));
+    btn.classList.add('act');
+    renderSmetaRows();
+    renderSmetaSummary();
+  }
+
+  async function toggleNds(checked) {
+    ndsEnabled = checked;
+    try { await DB.client.from('courses').update({ nds_enabled: checked }).eq('id', currentCourse.id); } catch (e) {}
+    renderSmetaSummary();
+  }
+
+  async function saveSmetaSettings() {
+    const val = parseInt(document.getElementById('smeta-planned-capacity').value) || null;
+    try {
+      await DB.client.from('courses').update({ planned_capacity: val }).eq('id', currentCourse.id);
+      currentCourse.planned_capacity = val;
+      renderSmetaSummary();
+    } catch (e) { alert('Ошибка: ' + e.message); }
+  }
+
+  function renderSmetaRows() {
+    const el = document.getElementById('smeta-rows-table');
+    if (!smetaRows.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">💰</div><div class="empty-title">Оплат не добавлено</div><div class="empty-sub">Добавьте преподавателей и специалистов с их часами</div></div>`;
+      return;
+    }
+    el.innerHTML = `<table>
+      <thead><tr><th>ФИО</th><th>Тип</th><th>Вид работы</th><th>Часы/ед.</th><th>Ставка</th><th>Сумма</th><th></th></tr></thead>
+      <tbody>${smetaRows.map(r => {
+        const p = people.find(x => x.id === r.person_id);
+        const units = smetaMode === 'plan' ? (r.planned_units || 0) : (r.actual_units || 0);
+        const rate = r.rate_override != null ? r.rate_override : findRate(p, r.work_type);
+        const amount = units * rate;
+        return `<tr style="cursor:pointer;" onclick="Courses.openEditSmetaRow(${r.id})">
+          <td><b>${esc(p?.name_nom || '—')}</b></td>
+          <td style="font-size:12px;">${r.is_staff ? 'Штатный' : 'ГПХ'}</td>
+          <td style="font-size:12px;">${esc(r.work_type)}</td>
+          <td>${units}</td>
+          <td>${Number(rate).toLocaleString('ru-RU')} ₽</td>
+          <td style="font-weight:600;">${Number(amount).toLocaleString('ru-RU')} ₽</td>
+          <td style="text-align:right;">→</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+
+  function renderExpenses() {
+    const el = document.getElementById('smeta-expenses-table');
+    if (!expenses.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🧾</div><div class="empty-title">Расходов не добавлено</div></div>`;
+      return;
+    }
+    el.innerHTML = `<table>
+      <thead><tr><th>Категория</th><th>Наименование</th><th>КОСГУ</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr></thead>
+      <tbody>${expenses.map(e => `
+        <tr style="cursor:pointer;" onclick="Courses.openEditExpense(${e.id})">
+          <td style="font-size:12px;">${esc(e.category)}</td>
+          <td>${esc(e.name)}</td>
+          <td>${esc(e.kosgu || '—')}</td>
+          <td>${e.quantity}</td>
+          <td>${Number(e.unit_price).toLocaleString('ru-RU')} ₽</td>
+          <td style="font-weight:600;">${Number(e.quantity * e.unit_price).toLocaleString('ru-RU')} ₽</td>
+          <td style="text-align:right;">→</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  function calcSmeta() {
+    const price = currentCourse.price || 0;
+    const headcount = smetaMode === 'plan' ? (currentCourse.planned_capacity || courseData.enrollments.length) : courseData.enrollments.length;
+    const revenue = price * headcount;
+
+    let staffCost = 0, gphCost = 0;
+    smetaRows.forEach(r => {
+      const p = people.find(x => x.id === r.person_id);
+      const units = smetaMode === 'plan' ? (r.planned_units || 0) : (r.actual_units || 0);
+      const rate = r.rate_override != null ? r.rate_override : findRate(p, r.work_type);
+      const amount = units * rate;
+      if (r.is_staff) staffCost += amount; else gphCost += amount;
+    });
+    const staffTaxPct = (smetaSettings.staff_tax_pct ?? 30.2) / 100;
+    const gphTaxPct = (smetaSettings.gph_tax_pct ?? 30) / 100;
+    const staffTax = staffCost * staffTaxPct;
+    const gphTax = gphCost * gphTaxPct;
+
+    let expReimb = 0, expMaterial = 0, expFuel = 0, expOther = 0;
+    expenses.forEach(e => {
+      const amt = (e.quantity || 0) * (e.unit_price || 0);
+      if (e.category === 'возмещение') expReimb += amt;
+      else if (e.category === 'раздаточный_материал') expMaterial += amt;
+      else if (e.category === 'гсм') expFuel += amt;
+      else expOther += amt;
+    });
+
+    const totalDirect = staffCost + staffTax + gphCost + gphTax + expMaterial + expFuel + expOther + expReimb;
+    const overheadPct = (smetaSettings.overhead_pct ?? 10) / 100;
+    const obshchehozPct = (smetaSettings.obshchehoz_pct ?? 10) / 100;
+    const overhead = revenue * overheadPct;
+    const obshchehoz = revenue * obshchehozPct;
+    const accumulation = Math.max(0, revenue - overhead - obshchehoz - totalDirect);
+    const nds = ndsEnabled ? accumulation * 18 / 118 : 0;
+    const totalExpenses = totalDirect + overhead + obshchehoz + accumulation + nds;
+
+    return { price, headcount, revenue, staffCost, staffTax, gphCost, gphTax, expReimb, expMaterial, expFuel, expOther, totalDirect, overhead, obshchehoz, accumulation, nds, totalExpenses };
+  }
+
+  function fmtM(n) { return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 }); }
+
+  function renderSmetaSummary() {
+    const c = calcSmeta();
+    const rows = [
+      ['Доход (слушателей × цена)', `${c.headcount} × ${fmtM(c.price)} ₽ = <b>${fmtM(c.revenue)} ₽</b>`],
+      ['Оплата труда штатных (211) + начисления', `${fmtM(c.staffCost)} + ${fmtM(c.staffTax)} = ${fmtM(c.staffCost + c.staffTax)} ₽`],
+      ['Оплата труда ГПХ (226) + начисления', `${fmtM(c.gphCost)} + ${fmtM(c.gphTax)} = ${fmtM(c.gphCost + c.gphTax)} ₽`],
+      ['Возмещение (проезд/проживание/аренда)', `${fmtM(c.expReimb)} ₽`],
+      ['Раздаточный материал (дипломы/удостоверения)', `${fmtM(c.expMaterial)} ₽`],
+      ['ГСМ', `${fmtM(c.expFuel)} ₽`],
+      ['Прочее', `${fmtM(c.expOther)} ₽`],
+      ['Итого прямые расходы', `<b>${fmtM(c.totalDirect)} ₽</b>`],
+      [`Накладные расходы (${smetaSettings.overhead_pct ?? 10}% от дохода)`, `${fmtM(c.overhead)} ₽`],
+      [`Общехозяйственные расходы (${smetaSettings.obshchehoz_pct ?? 10}% от дохода)`, `${fmtM(c.obshchehoz)} ₽`],
+      ['Накопления Университета (остаток)', `${fmtM(c.accumulation)} ₽`],
+      ['НДС' + (ndsEnabled ? '' : ' (выкл.)'), `${fmtM(c.nds)} ₽`],
+      ['ИТОГО РАСХОДОВ', `<b>${fmtM(c.totalExpenses)} ₽</b>`],
+    ];
+    document.getElementById('smeta-summary').innerHTML = `<table style="font-size:13.5px;">
+      ${rows.map(([k, v]) => `<tr><td style="padding:8px 0; color:var(--text-mut); width:60%;">${k}</td><td style="padding:8px 0; text-align:right;">${v}</td></tr>`).join('')}
+    </table>`;
+  }
+
+  // ── Модалка строки сметы ──
+  function updateSmetaRateHint() {
+    const personId = parseInt(document.getElementById('sm-person-id').value);
+    const p = people.find(x => x.id === personId);
+    const workType = document.getElementById('sm-work-type').value;
+    const rate = findRate(p, workType);
+    document.getElementById('sm-rate-hint').textContent = rate ? `(автоматически: ${fmtM(rate)} ₽)` : '';
+    if (!document.getElementById('sm-rate').value) document.getElementById('sm-rate').value = rate || '';
+    recalcSmetaRowAmount();
+  }
+  function recalcSmetaRowAmount() {
+    const units = smetaMode === 'plan' ? (parseFloat(document.getElementById('sm-planned').value) || 0) : (parseFloat(document.getElementById('sm-actual').value) || 0);
+    const rate = parseFloat(document.getElementById('sm-rate').value) || 0;
+    document.getElementById('sm-amount').value = fmtM(units * rate) + ' ₽';
+  }
+
+  function openAddSmetaRow() {
+    editingSmetaRow = null;
+    document.getElementById('smeta-row-modal-title').textContent = 'Добавить оплату';
+    document.getElementById('sm-row-del-btn').style.display = 'none';
+    ['sm-person-name', 'sm-person-id', 'sm-planned', 'sm-actual', 'sm-rate', 'sm-amount'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('sm-is-staff').value = 'true';
+    document.getElementById('sm-work-type').value = 'учебная';
+    document.getElementById('modal-smeta-row').classList.add('open');
+  }
+  function openEditSmetaRow(id) {
+    editingSmetaRow = smetaRows.find(r => r.id === id);
+    if (!editingSmetaRow) return;
+    document.getElementById('smeta-row-modal-title').textContent = 'Редактировать оплату';
+    document.getElementById('sm-row-del-btn').style.display = 'inline-flex';
+    const r = editingSmetaRow;
+    const p = people.find(x => x.id === r.person_id);
+    document.getElementById('sm-person-name').value = p ? `${p.initials || p.name_nom}` : '';
+    document.getElementById('sm-person-id').value = r.person_id;
+    document.getElementById('sm-is-staff').value = String(!!r.is_staff);
+    document.getElementById('sm-work-type').value = r.work_type;
+    document.getElementById('sm-planned').value = r.planned_units || '';
+    document.getElementById('sm-actual').value = r.actual_units || '';
+    document.getElementById('sm-rate').value = r.rate_override != null ? r.rate_override : findRate(p, r.work_type);
+    recalcSmetaRowAmount();
+    document.getElementById('modal-smeta-row').classList.add('open');
+  }
+  async function saveSmetaRow() {
+    const personId = parseInt(document.getElementById('sm-person-id').value);
+    if (!personId) { alert('Выберите человека'); return; }
+    const data = {
+      course_id: currentCourse.id,
+      person_id: personId,
+      is_staff: document.getElementById('sm-is-staff').value === 'true',
+      work_type: document.getElementById('sm-work-type').value,
+      role: document.getElementById('sm-work-type').value,
+      planned_units: parseFloat(document.getElementById('sm-planned').value) || 0,
+      actual_units: parseFloat(document.getElementById('sm-actual').value) || 0,
+      hours: parseFloat(document.getElementById('sm-actual').value) || parseFloat(document.getElementById('sm-planned').value) || 0,
+      rate_override: parseFloat(document.getElementById('sm-rate').value) || null,
+      rate: parseFloat(document.getElementById('sm-rate').value) || 0,
+      amount: (smetaMode === 'plan' ? (parseFloat(document.getElementById('sm-planned').value) || 0) : (parseFloat(document.getElementById('sm-actual').value) || 0)) * (parseFloat(document.getElementById('sm-rate').value) || 0),
+    };
+    try {
+      if (editingSmetaRow) {
+        await DB.client.from('course_specialists').update(data).eq('id', editingSmetaRow.id);
+      } else {
+        await DB.client.from('course_specialists').insert(data);
+      }
+      closeOv('modal-smeta-row');
+      await loadSmetaRows();
+      renderSmetaRows(); renderSmetaSummary();
+    } catch (e) { alert('Ошибка: ' + e.message); }
+  }
+  async function deleteSmetaRow() {
+    if (!editingSmetaRow) return;
+    if (!confirm('Удалить эту строку оплаты?')) return;
+    await DB.client.from('course_specialists').delete().eq('id', editingSmetaRow.id);
+    closeOv('modal-smeta-row');
+    await loadSmetaRows();
+    renderSmetaRows(); renderSmetaSummary();
+  }
+
+  // ── Модалка расхода ──
+  function openAddExpense() {
+    editingExpense = null;
+    document.getElementById('ex-del-btn').style.display = 'none';
+    ['ex-name', 'ex-kosgu', 'ex-price'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('ex-category').value = 'возмещение';
+    document.getElementById('ex-qty').value = 1;
+    document.getElementById('modal-expense').classList.add('open');
+  }
+  function openEditExpense(id) {
+    editingExpense = expenses.find(e => e.id === id);
+    if (!editingExpense) return;
+    document.getElementById('ex-del-btn').style.display = 'inline-flex';
+    const e = editingExpense;
+    document.getElementById('ex-category').value = e.category;
+    document.getElementById('ex-name').value = e.name;
+    document.getElementById('ex-kosgu').value = e.kosgu || '';
+    document.getElementById('ex-qty').value = e.quantity;
+    document.getElementById('ex-price').value = e.unit_price;
+    document.getElementById('modal-expense').classList.add('open');
+  }
+  async function saveExpense() {
+    const name = document.getElementById('ex-name').value.trim();
+    if (!name) { alert('Введите наименование'); return; }
+    const data = {
+      course_id: currentCourse.id,
+      category: document.getElementById('ex-category').value,
+      name,
+      kosgu: document.getElementById('ex-kosgu').value.trim() || null,
+      quantity: parseFloat(document.getElementById('ex-qty').value) || 0,
+      unit_price: parseFloat(document.getElementById('ex-price').value) || 0,
+    };
+    try {
+      if (editingExpense) {
+        await DB.client.from('course_expenses').update(data).eq('id', editingExpense.id);
+      } else {
+        await DB.client.from('course_expenses').insert(data);
+      }
+      closeOv('modal-expense');
+      await loadExpenses();
+      renderExpenses(); renderSmetaSummary();
+    } catch (e) { alert('Ошибка: ' + e.message); }
+  }
+  async function deleteExpense() {
+    if (!editingExpense) return;
+    if (!confirm('Удалить расход?')) return;
+    await DB.client.from('course_expenses').delete().eq('id', editingExpense.id);
+    closeOv('modal-expense');
+    await loadExpenses();
+    renderExpenses(); renderSmetaSummary();
+  }
+
+  // ── Экспорт docx ──
+  function docxParagraph(text, opts) {
+    opts = opts || {};
+    const align = opts.center ? '<w:jc w:val="center"/>' : '';
+    const bold = opts.bold ? '<w:b/>' : '';
+    const e = esc(text);
+    return `<w:p><w:pPr>${align}<w:spacing w:after="80"/></w:pPr><w:r><w:rPr>${bold}<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">${e}</w:t></w:r></w:p>`;
+  }
+  function docxTableRow(cells, opts) {
+    opts = opts || {};
+    const cellsXml = cells.map(c => {
+      const bold = (opts.boldRow || c.bold) ? '<w:b/>' : '';
+      const align = c.right ? '<w:jc w:val="right"/>' : '';
+      return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr><w:p><w:pPr>${align}</w:pPr><w:r><w:rPr>${bold}<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${esc(c.text ?? c)}</w:t></w:r></w:p></w:tc>`;
+    }).join('');
+    return `<w:tr>${cellsXml}</w:tr>`;
+  }
+  async function buildAndDownloadDocx(bodyXml, filename) {
+    const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${bodyXml}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="850" w:bottom="1134" w:left="1701"/></w:sectPr></w:body></w:document>`;
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+    zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+    zip.file('word/document.xml', docXml);
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    saveAs(blob, filename);
+  }
+
+  async function downloadSmeta() {
+    const c = calcSmeta();
+    const typeLabel = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
+    let body = '';
+    body += docxParagraph('Приложение №___', { center: true });
+    body += docxParagraph('УТВЕРЖДЕНА', { center: true });
+    body += docxParagraph('приказом ФГБОУ ВО', { center: true });
+    body += docxParagraph('«Поволжский ГУФКСиТ»', { center: true });
+    body += docxParagraph('от «___»__________20__ г. № ____', { center: true });
+    body += docxParagraph('');
+    body += docxParagraph(`Плановая смета доходов и расходов на проведение курсов ${typeLabel} по программе «${currentCourse.name}»`, { bold: true, center: true });
+    body += docxParagraph('');
+    const rows = [
+      ['ДОХОДЫ', ''],
+      [`Доходы от оказания услуг (${c.headcount} чел. × ${fmtM(c.price)} ₽)`, fmtM(c.revenue) + ' ₽'],
+      ['ИТОГО ДОХОДОВ', fmtM(c.revenue) + ' ₽'],
+      ['РАСХОДЫ', ''],
+      ['Заработная плата (211)', fmtM(c.staffCost) + ' ₽'],
+      ['Начисления на выплаты по оплате труда (213)', fmtM(c.staffTax) + ' ₽'],
+      ['Оплата труда по договорам ГПХ (226)', fmtM(c.gphCost) + ' ₽'],
+      ['Начисления на выплаты по ГПХ', fmtM(c.gphTax) + ' ₽'],
+      ['Возмещение расходов (проезд/проживание/аренда, 222/226)', fmtM(c.expReimb) + ' ₽'],
+      ['Увеличение стоимости материальных запасов — раздаточный материал (340/346)', fmtM(c.expMaterial) + ' ₽'],
+      ['ГСМ (340)', fmtM(c.expFuel) + ' ₽'],
+      ['Прочее', fmtM(c.expOther) + ' ₽'],
+      ['Прямые расходы, всего', fmtM(c.totalDirect) + ' ₽'],
+      [`Накладные расходы (${smetaSettings.overhead_pct ?? 10}%)`, fmtM(c.overhead) + ' ₽'],
+      [`Общехозяйственные расходы (${smetaSettings.obshchehoz_pct ?? 10}%)`, fmtM(c.obshchehoz) + ' ₽'],
+      ['Накопления Университета', fmtM(c.accumulation) + ' ₽'],
+      ['НДС', fmtM(c.nds) + ' ₽'],
+      ['ИТОГО РАСХОДОВ', fmtM(c.totalExpenses) + ' ₽'],
+    ];
+    let tbl = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>`;
+    tbl += docxTableRow([{ text: 'Наименование показателя', bold: true }, { text: 'Сумма, руб.', bold: true }]);
+    rows.forEach(r => { tbl += docxTableRow([{ text: r[0] }, { text: r[1], right: true }]); });
+    tbl += `</w:tbl>`;
+    body += tbl;
+    body += docxParagraph('');
+    body += docxParagraph('Начальник ПЭО                                                            И.И. Салахов');
+    body += docxParagraph('Начальник планово-финансового управления                    В.Р. Садыкова');
+    body += docxParagraph('Директор ИДО                                                              Э.Р. Румянцева');
+    await buildAndDownloadDocx(body, `Смета ${smetaMode === 'plan' ? 'плановая' : 'финальная'} — ${currentCourse.name}.docx`);
+  }
+
+  async function downloadKalkulyaciya() {
+    const c = calcSmeta();
+    const perStudent = c.headcount ? c.totalExpenses / c.headcount : 0;
+    const typeLabel = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
+    let body = '';
+    body += docxParagraph('Утверждаю', { center: true });
+    body += docxParagraph('Проректор по экономике', { center: true });
+    body += docxParagraph('_____________Р.К. Хайруллин', { center: true });
+    body += docxParagraph('« _____» _______________20___ г.', { center: true });
+    body += docxParagraph('');
+    body += docxParagraph('Калькуляция', { bold: true, center: true });
+    body += docxParagraph(`расходов на проведение курсов ${typeLabel} по программе «${currentCourse.name}»`, { center: true });
+    body += docxParagraph(`Калькуляционная ед. 1 чел.`, { center: true });
+    body += docxParagraph('');
+    const rows = [
+      ['Прямые расходы, в том числе:', c.totalDirect],
+      ['Заработная плата (211)', c.staffCost],
+      ['Начисления на выплаты по оплате труда (213)', c.staffTax],
+      ['Оплата труда по договору подряда (226)', c.gphCost + c.gphTax],
+      ['Прочие работы, услуги (проживание/проезд)', c.expReimb],
+      ['Увеличение стоимости материальных запасов (340)', c.expMaterial + c.expFuel],
+      ['Накладные расходы', c.overhead],
+      ['Общехозяйственные расходы', c.obshchehoz],
+      ['Плановые накопления', c.accumulation],
+      ['НДС', c.nds],
+      ['Стоимость услуг на обучение', c.totalExpenses],
+    ];
+    let tbl = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>`;
+    tbl += docxTableRow([{ text: 'Вид затрат', bold: true }, { text: 'Всего, руб.', bold: true }, { text: 'На 1 слушателя, руб.', bold: true }]);
+    rows.forEach(r => { tbl += docxTableRow([{ text: r[0] }, { text: fmtM(r[1]), right: true }, { text: fmtM(c.headcount ? r[1] / c.headcount : 0), right: true }]); });
+    tbl += `</w:tbl>`;
+    body += tbl;
+    body += docxParagraph('');
+    body += docxParagraph('И.о. начальника ПЭО                                                       И.И. Салахов');
+    body += docxParagraph('Начальник финансового отдела                                       Г.М. Шакирова');
+    await buildAndDownloadDocx(body, `Калькуляция — ${currentCourse.name}.docx`);
+  }
+
   function reloadPeople() { return loadAll(); }
 
   return {
@@ -3072,6 +3743,10 @@ function fmt(d) {
     openAddSpecialist, openEditSpecialist, saveSpecialist, deleteSpecialist, updateSpecAmount,
     openAddCommissionMember, saveCommissionMember, removeCommissionMember,
     downloadScheduleImage, closeOv, reloadPeople,
+    setSmetaMode, toggleNds, saveSmetaSettings,
+    openAddSmetaRow, openEditSmetaRow, saveSmetaRow, deleteSmetaRow, updateSmetaRateHint, recalcSmetaRowAmount,
+    openAddExpense, openEditExpense, saveExpense, deleteExpense,
+    downloadSmeta, downloadKalkulyaciya,
   };
 })();
 
@@ -3102,8 +3777,11 @@ const DOC_TYPES = [
   {id: 'service_memo',     label: 'Служебная записка (бронь)',            scope: 'group',    keywords: ['служебн','бронь']},
   {id: 'contract_student', label: 'Договор слушателя',                    scope: 'student',  keywords: ['обучающ','с обучающимися','договор слушат']},
   {id: 'spravka_call',     label: 'Справка-вызов',                        scope: 'student',  keywords: ['справка-вызов','вызов','справка вызов']},
-  {id: 'contract_gph',     label: 'Договор ГПХ специалиста',              scope: 'spec',     keywords: ['договор гпх','гпх']},
+  {id: 'contract_gph',     label: 'Договор ГПХ специалиста',              scope: 'spec',     keywords: ['договор гпх','гпх специалист']},
   {id: 'act_gph',          label: 'Акт выполнения услуг',                 scope: 'spec',     keywords: ['акт','акт выполн']},
+  {id: 'approval_gph',     label: 'Лист согласования для ГПХ',            scope: 'spec',     keywords: ['лист согласования для гпх','согласования для гпх']},
+  {id: 'contract_fl',      label: 'Договор с ФЛ (физлицом)',              scope: 'student',  keywords: ['договор с фл','фл (физлицом)']},
+  {id: 'contract_ul',      label: 'Договор с ЮЛ (юрлицом)',               scope: 'group',    keywords: ['договор с юл','юл (юрлицом)']},
 ];
 let selectedDocs = new Set();
 
@@ -3412,8 +4090,25 @@ function buildCourseData() {
       ? `действующего на основании доверенности № ${signer.poa_number}${signer.poa_date ? ' от ' + fmtRus(signer.poa_date) : ''}`
       : 'действующего на основании Устава',
   };
-  courseData.enrollments.forEach((e, i) => { data[`ФИО_${i + 1}`] = e.full_name; });
-  for (let i = courseData.enrollments.length + 1; i <= 100; i++) { data[`ФИО_${i}`] = ''; }
+  courseData.enrollments.forEach((e, i) => {
+    data[`ФИО_${i + 1}`] = e.full_name;
+    data[`ПАСПОРТ_СНИЛС_${i + 1}`] = e.passport || e.snils || '';
+  });
+  for (let i = courseData.enrollments.length + 1; i <= 100; i++) {
+    data[`ФИО_${i}`] = '';
+    data[`ПАСПОРТ_СНИЛС_${i}`] = '';
+  }
+
+  // Доп. реквизиты для договоров с ЮЛ/ФЛ (вводятся при генерации, если нужны)
+  const gField = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  data.РЕКВИЗИТЫ_УНИВЕРСИТЕТА = gField('g-univ-requisites');
+  data.ОСНОВАНИЕ_ЛИЦЕНЗИИ = gField('g-license-basis');
+  data.НОМЕР_ДОГОВОРА = gField('g-contract-number') || data.НОМЕР_ПРИКАЗА;
+  data.ЗАКАЗЧИК_НАЗВАНИЕ = gField('g-customer-name');
+  data.ЗАКАЗЧИК_ПРЕДСТАВИТЕЛЬ = gField('g-customer-rep');
+  data.ЗАКАЗЧИК_ПРЕДСТАВИТЕЛЬ_ДОЛЖНОСТЬ = gField('g-customer-rep-position');
+  data.ЗАКАЗЧИК_ОСНОВАНИЕ = gField('g-customer-basis');
+  data.ЗАКАЗЧИК_РЕКВИЗИТЫ = gField('g-customer-requisites');
   return data;
 }
 
@@ -3985,23 +4680,84 @@ function closeTextEditor() {
 // МОДУЛЬ: ИИ-ПОМОЩНИК
 // ═══════════════════════════════════════════════════════════
 const AI = (() => {
-  const AI_SYSTEM = `Ты — опытный директор Института дополнительного образования Поволжского ГУФКСиТ (Казань), профессионал в делопроизводстве ДПО. Отвечаешь кратко, по делу, на русском.
+  const AI_SYSTEM = `Ты — опытный директор Института дополнительного образования Поволжского ГУФКСиТ (Казань), профессионал в делопроизводстве ДПО. Отвечаешь кратко, по делу, на русском, как наставник для нового сотрудника.
 
-КОНТЕКСТ ПЛАТФОРМЫ: веб-платформа ИДО автоматизирует документооборот курсов повышения квалификации (ПК) и профессиональной переподготовки (ПП). Разделы: Люди (справочник с ФИО в падежах), Курсы (карточки со слушателями, специалистами ГПХ, комиссией ИАК), Документы (генерация из docx-шаблонов с метками {{МЕТКА}}).
+КОНТЕКСТ ПЛАТФОРМЫ: веб-платформа ИДО автоматизирует документооборот курсов повышения квалификации (ПК) и профессиональной переподготовки (ПП). Разделы: Люди (справочник с ФИО в падежах, подписанты, специалисты ГПХ), Курсы (карточки со слушателями, специалистами ГПХ, комиссией ИАК, расписанием сессий), Документы (генерация из docx-шаблонов с метками {{МЕТКА}}).
 
-ПОРЯДОК ОФОРМЛЕНИЯ КУРСА (стандарт ИДО):
-1. Служебная записка о брони номеров приказов → проректору по учебной работе
-2. Приказ о проведении курсов (с приложениями: стоимость, сроки сессий, список слушателей)
-3. Приказ об организации (смета, оплата специалистов)
-4. Договоры с обучающимися (по одному на слушателя) + справки-вызовы для работающих
-5. Приказ об утверждении тем ИАР (для ПП с итоговой аттестационной работой)
-6. Приказ о создании ИАК (председатель — внешний, зам, члены, секретарь)
-7. Приказ о допуске к итоговой аттестации
-8. Договоры ГПХ со специалистами + акты выполнения услуг
-9. Приказ об отчислении с выдачей дипломов/удостоверений
-Отчисление по заявлению — отдельным приказом в любой момент.
+═══ СИСТЕМЫ, С КОТОРЫМИ РАБОТАЕТ ИДО ═══
+- Рабочая почта Института ДО (два ящика: один для приёма платных заявок, другой общий) — пароли у действующих сотрудников, новому дают лично, в ИИ не хранятся.
+- Яндекс-формы — сбор анкет слушателей при наборе.
+- ЭДО (intra.tatar.ru) — электронный документооборот вуза, вход по учётке сотрудника.
+- TeachBase / PruffMe — платформы для онлайн-лекций дистанционного обучения.
+- Данная платформа (ИДО.Платформа) — учёт курсов, генерация документов.
+Пароли и логины к этим системам НЕ хранятся в ИИ-помощнике по соображениям безопасности — обратитесь к коллеге или руководителю за доступом.
 
-ФОРМА ОБУЧЕНИЯ всегда: «очная с применением дистанционных образовательных технологий». ПП от 250 часов → диплом о профессиональной переподготовке. ПК от 16 часов → удостоверение о повышении квалификации.
+═══ ПОЛНЫЙ ЦИКЛ КУРСА — ОТ НАБОРА ДО ВЫДАЧИ ДИПЛОМА ═══
+
+**Этап 0. Набор слушателей**
+- Платные курсы: заявки принимаются на почту ИДО через сайт.
+- Курсы по субсидиям/гранту/нацпроекту: набор через официальное информационное письмо (объявление программы, трудоёмкость, для кого, стоимость, форма и сроки обучения, что выдаётся по итогам, как записаться — со ссылками на чат и Яндекс-форму, с приложенными бланками заявления и согласия на обработку персональных данных).
+- После набора — рассылка слушателям письма-приглашения (тема письма = название программы): вступить в чат Telegram/WhatsApp, заполнить Яндекс-форму, приложить скан заявления и согласия, заполненные от руки.
+- Формирование личного дела слушателя: копия паспорта (2-3 стр + прописка), ИНН, СНИЛС, диплома о ВО/СПО, трудовой книжки, заявление на приём, согласие на обработку персданных.
+
+**Этап 1. Запуск курса (документы)**
+1. Служебная записка о брони номеров приказов
+2. Лист согласования к приказу со сметой (см. цепочку ниже)
+3. Приказ о проведении курсов (приложения: № 1 сроки сессий, № 2 список слушателей)
+4. Приказ об организации проведения курсов (смета: приложения № 1 смета доходов/расходов, № 2 почасовая оплата штатных сотрудников, № 3 — привлечённых специалистов ГПХ, № 4 — за внеучебную работу)
+5. Договоры с обучающимися — с ФЛ или ЮЛ в зависимости от плательщика (ПК/ПП — отдельные версии) + справки-вызовы для работающих слушателей
+6. Заявление слушателя о зачислении + согласие на обработку персональных данных
+
+**Этап 2. Логистика очной сессии** (если есть очный компонент и иногородние/приглашённые спикеры)
+7. Служебка на автобус + приложение «Маршрут проезда»
+8. Служебка на транспорт/трансфер персонально спикеру + приложение «Маршрут»
+9. Служебка на въезд слушателей на парковку личным транспортом + приложение со списком (ФИО, гос.номер, марка авто) — и отдельно ночная парковка на территории УСК, если нужно
+10. Служебка на вход слушателей (пропускной режим, КПП) со списком слушателей
+11. Служебка на проживание спикера — ДВА варианта: «за счёт средств приносящей доход деятельности» (оплачивает вуз) или «за наличный расчёт» (оплачивает сам) — с приложением «Даты проживания»
+
+**Этап 3. Договоры ГПХ с привлечёнными специалистами (лекторы, эксперты, члены ИАК и т.п.)**
+- Для нового специалиста нужен полный пакет: паспорт, прописка, ИНН, СНИЛС, банковские реквизиты (карта МИР), согласие на обработку персональных данных. Если специалист уже работал — только договор, плюс изменившиеся документы.
+- Номер и дату договора присваивает сотрудник ИДО. В день, от которого датирован договор, до 15:00 нужно отправить его в бухгалтерию на регистрацию (тема письма «Регистрация ГПХ»), приложив полный пакет документов для нового спикера. После отправки — обязательно позвонить и попросить зарегистрировать (могут не заметить письмо). Если пропустить срок и не сдвинуть дату оказания услуг — штраф 500 ₽ за договор (нужно для передачи сведений в Пенсионный фонд).
+- Внутреннее согласование ГПХ-договора — ОТДЕЛЬНАЯ цепочка от согласования приказов со сметой (см. ниже), лист согласования печатается на обороте договора, где подписи сторон.
+- Вместе с договором ГПХ идут: акт об оказании услуг, приказ об организации проведения (ссылкой), согласие на обработку персональных данных специалиста.
+- После полного согласования — гербовая печать в отделе делопроизводства (на подписи Шарапова), один экземпляр с листом согласования — на оплату, второй — специалисту.
+
+**Этап 4. Учебный процесс**
+- Расписание очных/дистанционных занятий по учебному плану программы (учебные планы — на сайте вуза).
+- Лекторы: штатные преподаватели вуза (оплата по карточкам учёта, приказы/положения) и привлечённые специалисты (оплата по ГПХ).
+- Промежуточная аттестация по дисциплинам — оформляется Ведомостью промежуточной аттестации (зачёт/экзамен, оценки по списку слушателей).
+
+**Этап 5. Итоговая аттестация и завершение**
+12. Представление директора ИДО — служебная записка проректору, представляющая темы ИАР и научных руководителей (документ-основание для следующего приказа)
+13. Приказ об утверждении тем ИАР — со ссылкой на представление директора, приложение — таблица ФИО/тема/научрук
+14. Приказ о создании ИАК — председатель (обычно внешний), зам, члены, секретарь
+15. Приказ о допуске к итоговой аттестации — приложение — список допущенных
+16. Итоговая аттестация — оформляется Протоколом итоговой аттестации: форма «защита ИАР» (для ПП) или форма «экзамен» (для ПК без ИАР) — число явившихся/неявившихся, оценки по списку, подписи председателя/зама/членов/секретаря ИАК, гербовая печать
+17. Приказ об отчислении — с выдачей дипломов о ПП / удостоверений о ПК, приложение — список отчисленных
+18. Печать дипломов/удостоверений → гербовая печать → сканирование и сохранение в папке курса
+
+**Справочные документы по запросу слушателя**
+- Справка-вызов — приглашение на очную сессию для предъявления по месту работы (для работающих слушателей)
+- Справка-подтверждение — подтверждение факта зачисления в число слушателей (для иных целей, не приглашение на сессию)
+
+**Служебные (по необходимости, не для каждого курса)**
+- Приказ о смене ФИО слушателя — на основании свидетельства о браке/перемене имени
+- Приказ о внесении изменений в приказ — правка уже изданного приказа
+
+═══ ДВЕ РАЗНЫЕ ЦЕПОЧКИ СОГЛАСОВАНИЯ — НЕ ПУТАТЬ ═══
+
+**Лист согласования к приказу со сметой** (приказ о проведении/организации): Первый проректор (А.Р. Шарапов) → Проректор по учебной работе и цифровой трансформации (А.В. Павлова) → Начальник планово-финансового управления (В.Р. Садыкова) → Главный бухгалтер-начальник УБУ и ФК (Г.К. Мухамедкаримова) → Начальник Управления правового обеспечения и кадровой работы (А.Р. Зайнуллин) → Директор ИДО (Э.Р. Румянцева, подписывает последней).
+
+**Лист согласования для договора ГПХ** — порядок ОБРАТНЫЙ и по другим отделам: Директор ИДО (Э.Р. Румянцева — ВСЕГДА первая, документы сначала проверяет её заместитель) → Проректор по учебной работе (А.В. Павлова) → Юридический отдел (Н.И. Хадиева — договор несут ей уже подписанным другой стороной) → Планово-экономический отдел (И.И. Салахов) → Планово-финансовое управление (В.Р. Садыкова — в большинстве случаев вместо неё подписывает планово-экономический отдел) → Отдел государственных закупок (Г.Б. Таменова) → Управление бухгалтерского учёта и финансового контроля (Г.К. Мухамедкаримова, зам — Р.И. Заббарова).
+
+═══ ПРАВИЛО ФИЗИЧЕСКОЙ СБОРКИ ПРИКАЗА ═══
+Лист согласования ВСЕГДА идёт вторым листом приказа — печатается на ОБОРОТНОЙ стороне первого листа (двусторонняя печать только этой пары страниц). Все остальные страницы приказа (текст далее, приложения) печатаются обычной односторонней печатью. Это правило действует для ЛЮБОГО приказа — какой именно лист согласования используется (к смете, для ГПХ и т.д.) зависит от типа документа, но место в структуре и способ печати всегда одинаковы.
+
+ФОРМА ОБУЧЕНИЯ по умолчанию: «очная с применением дистанционных образовательных технологий», но для курсов по гранту/субсидии форма может быть «заочная с использованием дистанционных образовательных технологий» — уточняй по программе. ПП — диплом о профессиональной переподготовке. ПК — удостоверение о повышении квалификации.
+
+ПОДПИСАНТЫ (текущий состав, если не указано иное в базе): Ректор — Р.Т. Бурганов. Первый проректор — А.Р. Шарапов. Проректор по учебной работе и цифровой трансформации — А.В. Павлова. Директор ИДО — Э.Р. Румянцева. Начальник Управления правового обеспечения и кадровой работы — А.Р. Зайнуллин. Начальник юридического отдела — Н.И. Хадиева. Начальник планово-экономического отдела — И.И. Салахов. Начальник планово-финансового управления — В.Р. Садыкова. Начальник отдела государственных закупок — Г.Б. Таменова. Главный бухгалтер-начальник УБУ и ФК — Г.К. Мухамедкаримова (зам — Р.И. Заббарова).
+
+Нормативная база, на которую ссылаются приказы: ФЗ от 29.12.2012 № 273-ФЗ «Об образовании в РФ»; Устав ФГБОУ ВО «Поволжский ГУФКСиТ»; Положение Центра дополнительного образования Университета (протокол Учёного совета от 29.06.2023 № 15); Положение о порядке организации и осуществления дополнительного образования (протокол от 25.05.2023 № 12); Регламент проведения промежуточной и итоговой аттестации слушателей ДОП (протокол от 25.05.2023 № 12).
 
 Если просят составить документ — выдай полный официальный текст в стиле приказов вуза (шапка ФГБОУ ВО «Поволжский ГУФКСиТ», ПРИКАЗЫВАЮ, пункты, подпись ректора). Документ оберни в блок начинающийся строкой [ДОКУМЕНТ] и заканчивающийся [/ДОКУМЕНТ] — платформа предложит скачать его как docx.`;
 
