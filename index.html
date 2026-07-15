@@ -3772,6 +3772,7 @@ const DOC_TYPES = [
   {id: 'order_org',        label: 'Приказ об организации (смета)',        scope: 'group',    keywords: ['организаци','смет','кпп афк']},
   {id: 'order_iak',        label: 'Приказ о создании ИАК',                scope: 'group',    keywords: ['создании иак','иак','аттестационн комисс']},
   {id: 'order_topics',     label: 'Приказ об утверждении тем ИАР',        scope: 'group',    keywords: ['тем иар','утверждении тем','тем ита']},
+  {id: 'submission_ido',   label: 'Представление директора ИДО (темы)',   scope: 'group',    keywords: ['представление']},
   {id: 'order_admission',  label: 'Приказ о допуске к ИА',                scope: 'group',    keywords: ['допуск','итог аттест','к иа']},
   {id: 'order_expulsion',  label: 'Приказ об отчислении (финал, список)', scope: 'group',    keywords: ['приказ об отчислении','отчислении из числа']},
   {id: 'service_memo',     label: 'Служебная записка (бронь)',            scope: 'group',    keywords: ['служебн','бронь']},
@@ -3991,11 +3992,26 @@ function updateSummary() {
 // ═══════════════════════════════════════════════════════════
 // ПОИСК ШАБЛОНА
 // ═══════════════════════════════════════════════════════════
+function currentProgramType() {
+  const sel = document.getElementById('g-program-type');
+  const v = (sel && sel.value) || (currentCourse && currentCourse.type) || 'pp';
+  return v === 'pk' ? 'pk' : 'pp';
+}
+
 function findTmpl(keywords) {
-  return templates.find(t => {
+  const matches = templates.filter(t => {
     const n = (t.name || '').toLowerCase();
     return keywords.some(k => n.includes(k.toLowerCase()));
   });
+  if (!matches.length) return undefined;
+  const isPK = currentProgramType() === 'pk';
+  const has = (t, tag) => (t.name || '').toLowerCase().includes(tag);
+  // 1) вариант шаблона своего типа программы: «... (ПК)» или «... (ПП)»
+  const own = matches.find(t => has(t, isPK ? '(пк)' : '(пп)'));
+  if (own) return own;
+  // 2) нейтральный шаблон (без пометки чужого типа)
+  const neutral = matches.find(t => !has(t, '(пк)') && !has(t, '(пп)'));
+  return neutral || matches[0];
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4014,6 +4030,12 @@ function buildCourseData() {
     if (!p) return '';
     const reg = [p.academic_degree, p.academic_title].filter(Boolean).join(', ');
     return `${p.name_nom}${reg ? ', ' + reg : ''}${p.position_nom ? ', ' + p.position_nom : ''}${p.department ? ', ' + p.department : ''}`;
+  };
+  // «Павловой Анне Владимировне» → «А.В. Павловой» (для склонённых ФИО из справочника)
+  const initialsCase = (nameCase) => {
+    if (!nameCase) return '';
+    const p = nameCase.trim().split(/\s+/);
+    return p.length >= 3 ? `${p[1][0]}.${p[2][0]}. ${p[0]}` : nameCase.trim();
   };
   const findRole = (role) => { const m = comm.find(x => x.role === role); return m ? roleStr(m.person) : ''; };
   const findAllRoles = (role) => comm.filter(x => x.role === role).map(m => roleStr(m.person)).filter(Boolean);
@@ -4075,6 +4097,7 @@ function buildCourseData() {
     ПРЕДСЕДАТЕЛЬ_ИАК: findRole('chair'),
     ЗАМ_ПРЕДСЕДАТЕЛЯ_ИАК: findRole('deputy'),
     ЧЛЕН_ИАК_1: members[0] || '', ЧЛЕН_ИАК_2: members[1] || '', ЧЛЕН_ИАК_3: members[2] || '',
+    ЧЛЕН_ИАК_4: members[3] || '', ЧЛЕН_ИАК_5: members[4] || '', ЧЛЕН_ИАК_6: members[5] || '',
     СЕКРЕТАРЬ_ИАК: findRole('secretary'),
     ЧЛЕНЫ_ИАК: members.length ? members.map(m => '- ' + m + ';').join('\n').replace(/;$/, '.') : '',
     ПЕРВЫЙ_ПРОРЕКТОР: firstProrector?.initials || 'А.Р. Шарапов',
@@ -4083,7 +4106,9 @@ function buildCourseData() {
     ПРОРЕКТОР_ВИН: 'Павлову А.В.',
     ГЛАВ_БУХ: buh?.initials || '',
     ДИРЕКТОР_ИДО: dirIDO?.initials || '',
+    ДИРЕКТОР_ИДО_РОД: initialsCase(dirIDO?.name_gen) || '',
     ПРОРЕКТОР: prorectorUch?.name_dat || '',
+    ПРОРЕКТОР_ДАТ: initialsCase(prorectorUch?.name_dat) || 'А.В. Павловой',
     ОТВ_ИСПОЛНИТЕЛЬ: dirIDO?.initials ? `${dirIDO.initials}, тел.: 294-90-08` : '',
     АДРЕСАТ: prorectorUch?.name_nom ? makeVocative(prorectorUch.name_nom) : 'Уважаемый коллега',
     ОСНОВАНИЕ_ПОДП: signer?.poa_number
@@ -4093,11 +4118,11 @@ function buildCourseData() {
   courseData.enrollments.forEach((e, i) => {
     data[`ФИО_${i + 1}`] = e.full_name;
     data[`ПАСПОРТ_СНИЛС_${i + 1}`] = e.passport || e.snils || '';
+    data[`ТЕМА_${i + 1}`] = e.thesis_topic || '';
+    const sup = people.find(p => p.id === e.supervisor_id);
+    data[`НАУЧРУК_${i + 1}`] = sup ? roleStr(sup) : '';
   });
-  for (let i = courseData.enrollments.length + 1; i <= 100; i++) {
-    data[`ФИО_${i}`] = '';
-    data[`ПАСПОРТ_СНИЛС_${i}`] = '';
-  }
+  // Строки таблиц сверх числа слушателей не заполняем — genDocx удалит их целиком
 
   // Доп. реквизиты для договоров с ЮЛ/ФЛ (вводятся при генерации, если нужны)
   const gField = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
@@ -4233,6 +4258,8 @@ async function genDocx(tmpl, data) {
       xml = xml.split('{{' + k + '}}').join(escapeXml(v));
     }
     xml = removeEmptyTableRows(xml);
+    // подчищаем нумерованные метки ({{ФИО_87}} и т.п.), оставшиеся вне таблиц
+    xml = xml.replace(/\{\{[А-ЯЁA-Z_]+_\d+\}\}/g, '');
     zip.file(fn, new TextEncoder().encode(xml));
   }
   return await zip.generateAsync({
