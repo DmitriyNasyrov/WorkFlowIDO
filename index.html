@@ -1873,6 +1873,24 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
     </div>
 
     <details style="margin-top: 6px;">
+      <summary style="cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text-mut); padding: 6px 0;">Основания и финансирование приказов (проверьте для нового курса)</summary>
+      <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+        <div class="fld">
+          <label>Основание проведения (пункт плана / протокол Учёного совета)</label>
+          <input class="inp" id="g-basis" placeholder="пунктом N Дополнения к сводному плану... от ДД месяца ГГГГ г. № N">
+        </div>
+        <div class="fld">
+          <label>Федеральный проект (для приказа о создании ИАК; пусто — если курс вне проекта)</label>
+          <input class="inp" id="g-fedproject" placeholder="в рамках федерального проекта «...»">
+        </div>
+        <div class="fld">
+          <label>Источник финансирования (для приказа об организации)</label>
+          <input class="inp" id="g-finance" placeholder="средств, полученных из федерального бюджета... / внебюджетных средств">
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-top: 6px;">
       <summary style="cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text-mut); padding: 6px 0;">Реквизиты для Договора с ЮЛ/ФЛ (раскрыть при необходимости)</summary>
       <div class="row-2" style="margin-top: 10px;">
         <div class="fld"><label>№ договора</label><input class="inp" id="g-contract-number" placeholder="напр. 45"></div>
@@ -1945,7 +1963,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
       <div class="card-title">📁 Шаблоны документов</div>
       <label class="btn btn-primary btn-sm" style="cursor: pointer;">
         ⬆ Загрузить шаблоны (.docx)
-        <input type="file" id="tmpl-upload" accept=".docx" multiple style="display: none;" onchange="Documents.uploadTemplates(event)">
+        <input type="file" id="tmpl-upload" accept=".docx,.xlsx" multiple style="display: none;" onchange="Documents.uploadTemplates(event)">
       </label>
     </div>
     <div style="padding: 4px;">
@@ -3773,6 +3791,7 @@ const DOC_TYPES = [
   {id: 'order_iak',        label: 'Приказ о создании ИАК',                scope: 'group',    keywords: ['создании иак','иак','аттестационн комисс']},
   {id: 'order_topics',     label: 'Приказ об утверждении тем ИАР',        scope: 'group',    keywords: ['тем иар','утверждении тем','тем ита']},
   {id: 'submission_ido',   label: 'Представление директора ИДО (темы)',   scope: 'group',    keywords: ['представление']},
+  {id: 'smeta',            label: 'Смета (Excel)',                        scope: 'group',    keywords: ['смета']},
   {id: 'order_admission',  label: 'Приказ о допуске к ИА',                scope: 'group',    keywords: ['допуск','итог аттест','к иа']},
   {id: 'order_expulsion',  label: 'Приказ об отчислении (финал, список)', scope: 'group',    keywords: ['приказ об отчислении','отчислении из числа']},
   {id: 'service_memo',     label: 'Служебная записка (бронь)',            scope: 'group',    keywords: ['служебн','бронь']},
@@ -4037,6 +4056,19 @@ function buildCourseData() {
     const p = nameCase.trim().split(/\s+/);
     return p.length >= 3 ? `${p[1][0]}.${p[2][0]}. ${p[0]}` : nameCase.trim();
   };
+  // «Мухамедкаримовой Гульнаре Каримовне» → «Мухамедкаримовой Г.К.»
+  const famInitialsCase = (nameCase) => {
+    if (!nameCase) return '';
+    const p = nameCase.trim().split(/\s+/);
+    return p.length >= 3 ? `${p[0]} ${p[1][0]}.${p[2][0]}.` : nameCase.trim();
+  };
+  // ISO-дата → «16.03.2026»
+  const fmtDot = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+  };
   const findRole = (role) => { const m = comm.find(x => x.role === role); return m ? roleStr(m.person) : ''; };
   const findAllRoles = (role) => comm.filter(x => x.role === role).map(m => roleStr(m.person)).filter(Boolean);
   const members = findAllRoles('member');
@@ -4071,6 +4103,7 @@ function buildCourseData() {
     НОМЕР_ПРИКАЗА: orderNum, ДАТА: docDate,
     НОМ_ОСНОГО_ПРИКАЗА: c.main_order_number || '',
     НОМЕР_ОСН_ПРИКАЗА: c.main_order_number || '',
+    ДАТА_ОСН_ПРИКАЗА: fmtDot(c.main_order_date),
     НОМЕР_ПРИКАЗА_ОРГ: c.org_order_number || '',
     СТОИМОСТЬ: c.price ? Number(c.price).toLocaleString('ru-RU') : '',
     СТОИМОСТЬ_ПРОПИСЬ: c.price_words || '',
@@ -4105,6 +4138,14 @@ function buildCourseData() {
     ПРОРЕКТОР_УЧ: prorectorUch?.initials || 'А.В. Павлова',
     ПРОРЕКТОР_ВИН: 'Павлову А.В.',
     ГЛАВ_БУХ: buh?.initials || '',
+    ГЛАВ_БУХ_ДАТ: famInitialsCase(buh?.name_dat) || 'Мухамедкаримовой Г.К.',
+    НАЧ_ПФУ: (people.find(p => /планово-финанс/i.test(p.position_nom || '') || /начальник.*пфу/i.test(p.position_nom || ''))?.initials) || 'В.Р. Садыкова',
+    ОСНОВАНИЕ_ПРОВЕДЕНИЯ: (document.getElementById('g-basis')?.value.trim())
+      || 'пунктом 7 Дополнения к сводному плану работы ФГБОУ ВО «Поволжский ГУФКСиТ» на 2025-2026 учебный год, принятого решением Учёного совета от 29 января 2026 г. № 7',
+    ФЕДПРОЕКТ: (document.getElementById('g-fedproject')?.value.trim())
+      || 'в рамках федерального проекта «Развитие физической культуры и спорта»',
+    ИСТОЧНИК_ФИНАНС: (document.getElementById('g-finance')?.value.trim())
+      || 'средств, полученных из федерального бюджета на финансовое обеспечение выполнения государственного задания на оказание государственных услуг в рамках исполнения мероприятий государственной программы Российской Федерации «Развитие физической культуры и спорта»',
     ДИРЕКТОР_ИДО: dirIDO?.initials || '',
     ДИРЕКТОР_ИДО_РОД: initialsCase(dirIDO?.name_gen) || '',
     ПРОРЕКТОР: prorectorUch?.name_dat || '',
@@ -4245,6 +4286,97 @@ function removeEmptyTableRows(xml) {
   return xml.replace(/<w:tr[ >](?:(?!<w:tr[ >]|<\/w:tr>)[\s\S])*?\{\{[^}]+\}\}(?:(?!<\/w:tr>)[\s\S])*?<\/w:tr>/g, '');
 }
 
+// ═══ СМЕТА (Excel): заполнение xlsx-шаблона значениями с сохранением стилей и формул ═══
+function setXlsxCells(xml, updates) {
+  return xml.replace(/<c r="([A-Z]+[0-9]+)"([^>]*?)(?:\/>|>[\s\S]*?<\/c>)/g, (m, ref, attrs) => {
+    if (!(ref in updates)) return m;
+    const val = updates[ref];
+    const sM = attrs.match(/s="\d+"/);
+    const s = sM ? ' ' + sM[0] : '';
+    if (val === null || val === undefined || val === '') return `<c r="${ref}"${s}/>`;
+    if (typeof val === 'number' && isFinite(val)) return `<c r="${ref}"${s}><v>${val}</v></c>`;
+    return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${escapeXml(String(val))}</t></is></c>`;
+  });
+}
+
+async function buildSmetaUpdates() {
+  const c = currentCourse;
+  const u = {};
+  const rows = courseData.specialists || [];
+  let exps = [];
+  try {
+    const { data } = await DB.client.from('course_expenses').select('*').eq('course_id', c.id);
+    exps = data || [];
+  } catch (e) { /* без расходов */ }
+
+  const ini = (p) => p?.initials || p?.name_nom || '—';
+  const label = (r, p) => {
+    if (r.work_type === 'иак') return `${ini(p)}, член ИАК`;
+    const cats = [p?.rate_position_category, p?.rate_degree_category, p?.rate_title_category].filter(Boolean).join(', ');
+    return cats ? `${ini(p)}, ${cats}` : ini(p);
+  };
+  const units = (r) => Number(r.actual_units || r.planned_units || r.hours || 0);
+  const rate = (r) => Number(r.rate_override != null ? r.rate_override : (r.rate || 0));
+  const toRow = (r) => { const p = people.find(x => x.id === r.person_id); return { A: label(r, p), B: units(r), C: rate(r) }; };
+
+  const staffUch = rows.filter(r => r.is_staff && r.work_type === 'учебная').map(toRow);
+  const staffVne = rows.filter(r => r.is_staff && r.work_type === 'внеучебная').map(toRow);
+  const gphUch   = rows.filter(r => !r.is_staff && (r.work_type === 'учебная' || r.work_type === 'иак')).map(toRow);
+  const gphVne   = rows.filter(r => !r.is_staff && r.work_type === 'внеучебная').map(toRow);
+  const vozm = exps.filter(e => ['возмещение', 'гсм', 'прочее'].includes(e.category))
+    .map(e => ({ A: e.name || '', B: Number(e.qty || 0), C: Number(e.price || 0), D: Number(e.kosgu || 226) }));
+  const razd = exps.filter(e => e.category === 'раздаточный_материал')
+    .map(e => ({ A: e.name || '', B: Number(e.qty || 0), C: Number(e.price || 0), D: Number(e.kosgu || 346) }));
+
+  const fill = (list, start, end, emptyRow) => {
+    let r = start;
+    for (const item of list) {
+      if (r > end) { logMsg(`⚠️ Смета: блок строк ${start}–${end} переполнен, часть строк не вошла`, 'warn'); break; }
+      for (const [col, val] of Object.entries(item)) u[`${col}${r}`] = val;
+      r++;
+    }
+    for (; r <= end; r++) for (const [col, val] of Object.entries(emptyRow)) u[`${col}${r}`] = val;
+  };
+  fill(staffUch, 14, 33, { A: null, B: null, C: null });
+  fill(staffVne, 35, 45, { A: null, B: null, C: 5500 });
+  fill(gphUch, 50, 64, { A: null, B: null, C: null });
+  fill(gphVne, 66, 74, { A: null, B: null, C: 5500 });
+  fill(vozm, 80, 92, { A: null, B: null, C: null, D: null });
+  fill(razd, 94, 103, { A: null, B: null, C: null, D: null });
+
+  const типРод = c.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
+  u['A6'] = `Смета доходов и расходов на проведение курсов ${типРод} по программе «${c.name || ''}» в рамках государственной программы "Развитие физической культуры и спорта"`;
+  u['A9'] = `Итого доходов (за счет средств сторонних организаций и физ.лиц) ${c.hours || 0} часов`;
+  u['B9'] = Number(c.planned_capacity || (courseData.enrollments || []).length || 0);
+  if (c.price) u['C9'] = Number(c.price);
+  const dv = document.getElementById('g-doc-date')?.value || c.main_order_date;
+  if (dv) {
+    const f = fmtRus(dv).split(' ');
+    u['C5'] = `от "${f[0]}" ${f[1]} ${f[2]} г. № ${c.org_order_number || '____'}`;
+  }
+  const dirIDO = people.find(p => /директор.*идо/i.test(p.position_nom || '') || /директор.*институт.*доп/i.test(p.position_nom || ''));
+  u['D127'] = dirIDO?.initials || '';
+  return u;
+}
+
+async function genSmetaXlsx(tmpl) {
+  const ab = await fetchTemplateFile(tmpl);
+  const zip = await JSZip.loadAsync(ab);
+  if (!zip.files['xl/workbook.xml']) throw new Error('Шаблон сметы должен быть файлом .xlsx');
+  const sheetFn = zip.files['xl/worksheets/sheet1.xml'] ? 'xl/worksheets/sheet1.xml'
+    : Object.keys(zip.files).find(f => /^xl\/worksheets\/sheet\d+\.xml$/.test(f));
+  let xml = await zip.files[sheetFn].async('string');
+  xml = setXlsxCells(xml, await buildSmetaUpdates());
+  zip.file(sheetFn, xml);
+  let wbXml = await zip.files['xl/workbook.xml'].async('string');
+  if (!/fullCalcOnLoad/.test(wbXml)) {
+    wbXml = wbXml.includes('<calcPr') ? wbXml.replace('<calcPr', '<calcPr fullCalcOnLoad="1"')
+      : wbXml.replace('</workbook>', '<calcPr calcId="171027" fullCalcOnLoad="1"/></workbook>');
+    zip.file('xl/workbook.xml', wbXml);
+  }
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
 async function genDocx(tmpl, data) {
   const ab = await fetchTemplateFile(tmpl);
   const zip = await JSZip.loadAsync(ab);
@@ -4360,6 +4492,15 @@ async function generateAll() {
       if (d.scope !== 'group') continue;
       const tmpl = findTmpl(d.keywords);
       if (!tmpl) { logMsg(`⚠️ Шаблон для "${d.label}" не найден — пропускаем`, 'warn'); continue; }
+      if (docId === 'smeta') {
+        try {
+          const blob = await genSmetaXlsx(tmpl);
+          zip.file(`${groupFolder}/Смета.xlsx`, await blob.arrayBuffer());
+          doneFiles++;
+          logMsg(`✓ <span class="ok">Смета (Excel)</span> [${doneFiles}/${totalFiles}]`, '');
+        } catch (e) { logMsg(`✗ Смета: ${e.message}`, 'err'); }
+        continue;
+      }
       try {
         const data = buildCourseData();
         const blob = await genDocx(tmpl, data);
@@ -4476,6 +4617,7 @@ const EXPECTED_TEMPLATES = [
   {name: 'Представление директора ИДО', typed: true},
   {name: 'Приказ о допуске к ИА'},
   {name: 'Приказ об отчислении', typed: true},
+  {name: 'Смета', typed: true},
   {name: 'Отчисление по заявлению'},
   {name: 'Справка-вызов'},
   {name: 'Служебная записка'},
@@ -4600,7 +4742,7 @@ async function uploadTemplates(event) {
       const test = decodeURIComponent(escape(rawName));
       if (/[А-Яа-яЁё]/.test(test)) rawName = test;
     } catch (e) { /* оставляем как есть */ }
-    let tmplName = rawName.replace(/\.docx$/i, '').trim();
+    let tmplName = rawName.replace(/\.(docx|xlsx)$/i, '').trim();
     // Убираем суффиксы вроде "_ШАБЛОН"
     tmplName = tmplName.replace(/_ШАБЛОН$/i, '').trim();
 
@@ -4691,6 +4833,10 @@ async function openTextEditor(id) {
   try {
     const ab = await fetchTemplateFile(t);
     editingZip = await JSZip.loadAsync(ab);
+    if (!editingZip.files['word/document.xml']) {
+      alert('Это Excel-шаблон — скачайте его кнопкой ⬇ и правьте в Excel, затем загрузите заново с тем же именем.');
+      return;
+    }
     let xml = await editingZip.files['word/document.xml'].async('string');
     xml = fixSplits(xml);
     // Извлекаем видимый текст
