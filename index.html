@@ -4464,22 +4464,27 @@ function fmtRus(d) {
 // УПРАВЛЕНИЕ ШАБЛОНАМИ
 // ═══════════════════════════════════════════════════════════
 
-// Ожидаемые шаблоны (имя в БД ↔ ключевые слова для движка)
+// Ожидаемые шаблоны. typed: true — документ имеет два варианта: «... (ПП)» и «... (ПК)»
 const EXPECTED_TEMPLATES = [
-  'Договор с обучающимися',
-  'Договор ГПХ специалист',
-  'Акт выполнения услуг',
-  'Приказ о проведении курсов',
-  'Приказ об организации',
-  'Приказ о создании ИАК',
-  'Приказ об утверждении тем ИАР',
-  'Приказ о допуске к ИА',
-  'Приказ об отчислении',
-  'Отчисление по заявлению',
-  'Справка-вызов',
-  'Служебная записка',
-  'Научные руководители',
+  {name: 'Договор с обучающимися'},
+  {name: 'Договор ГПХ специалист'},
+  {name: 'Акт выполнения услуг'},
+  {name: 'Приказ о проведении курсов', typed: true},
+  {name: 'Приказ об организации', typed: true},
+  {name: 'Приказ о создании ИАК', typed: true},
+  {name: 'Приказ об утверждении тем ИАР', typed: true},
+  {name: 'Представление директора ИДО', typed: true},
+  {name: 'Приказ о допуске к ИА'},
+  {name: 'Приказ об отчислении', typed: true},
+  {name: 'Отчисление по заявлению'},
+  {name: 'Справка-вызов'},
+  {name: 'Служебная записка'},
+  {name: 'Научные руководители'},
 ];
+
+// «Приказ об организации (ПП)» → база «приказ об организации», вариант «пп»
+const tmplBaseName = (n) => (n || '').toLowerCase().trim().replace(/\s*\((пк|пп)\)\s*$/i, '').trim();
+const tmplVariant = (n) => { const m = (n || '').trim().toLowerCase().match(/\((пк|пп)\)$/i); return m ? m[1] : null; };
 
 function switchSubtab(which) {
   document.getElementById('subtab-gen').classList.toggle('act', which === 'gen');
@@ -4493,33 +4498,84 @@ function renderTemplates() {
   const el = document.getElementById('tmpl-table');
   document.getElementById('tmpl-count').textContent = templates.length;
 
-  // Сопоставляем ожидаемые с загруженными
-  const rows = EXPECTED_TEMPLATES.map(name => {
-    const found = templates.find(t => (t.name || '').toLowerCase().trim() === name.toLowerCase().trim());
-    return { name, found };
-  });
-  // Плюс любые лишние шаблоны не из списка
-  const extra = templates.filter(t => !EXPECTED_TEMPLATES.some(n => n.toLowerCase().trim() === (t.name||'').toLowerCase().trim()));
+  const used = new Set();
+  const btns = (t) => `<button class="btn btn-ghost btn-sm" onclick="Documents.downloadTemplate(${t.id})" title="Скачать для правки в Word">⬇</button>
+      <button class="btn btn-ghost btn-sm" onclick="Documents.openTextEditor(${t.id})" title="Редактор текста и меток">✏️ Править</button>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="Documents.deleteTemplate(${t.id})" title="Удалить">🗑</button>`;
 
-  el.innerHTML = rows.map(r => `
+  const variantLine = (label, t, isShared) => t
+    ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+         <span style="min-width:26px;font-weight:600;">${label}:</span>
+         <span class="tmpl-status tmpl-ok">✓ есть</span>
+         <span style="color:var(--text-mut);">${esc(t.name)}${isShared ? ' (общий шаблон)' : ''}</span>
+         ${isShared ? '' : btns(t)}
+       </div>`
+    : `<div style="display:flex;align-items:center;gap:8px;">
+         <span style="min-width:26px;font-weight:600;">${label}:</span>
+         <span class="tmpl-status tmpl-missing">нет файла</span>
+         <span style="color:var(--text-mut);">для курсов ${label} документ не будет создаваться</span>
+       </div>`;
+
+  const rows = EXPECTED_TEMPLATES.map(exp => {
+    const base = exp.name.toLowerCase().trim();
+    const matches = templates.filter(t => tmplBaseName(t.name) === base);
+    matches.forEach(t => used.add(t.id));
+
+    if (!exp.typed) {
+      const found = matches[0];
+      return `
     <div class="tmpl-row">
-      <div class="tmpl-icon">${r.found ? '📄' : '📭'}</div>
+      <div class="tmpl-icon">${found ? '📄' : '📭'}</div>
       <div class="tmpl-info">
-        <div class="tmpl-name">${esc(r.name)}</div>
-        <div class="tmpl-meta">${r.found ? 'загружен' : 'не загружен — документ не будет создаваться'}</div>
+        <div class="tmpl-name">${esc(exp.name)}</div>
+        <div class="tmpl-meta">${found ? 'загружен' : 'не загружен — документ не будет создаваться'}</div>
       </div>
-      <span class="tmpl-status ${r.found ? 'tmpl-ok' : 'tmpl-missing'}">${r.found ? '✓ есть' : 'нет файла'}</span>
-      ${r.found ? `<button class="btn btn-ghost btn-sm" onclick="Documents.downloadTemplate(${r.found.id})" title="Скачать для правки в Word">⬇</button>
-      <button class="btn btn-ghost btn-sm" onclick="Documents.openTextEditor(${r.found.id})" title="Редактор текста и меток">✏️ Править</button>
-      <button class="btn btn-danger btn-sm btn-icon" onclick="Documents.deleteTemplate(${r.found.id})" title="Удалить">🗑</button>` : ''}
-    </div>
-  `).join('') + (extra.length ? `
+      <span class="tmpl-status ${found ? 'tmpl-ok' : 'tmpl-missing'}">${found ? '✓ есть' : 'нет файла'}</span>
+      ${found ? btns(found) : ''}
+    </div>`;
+    }
+
+    const pp = matches.find(t => tmplVariant(t.name) === 'пп');
+    const pk = matches.find(t => tmplVariant(t.name) === 'пк');
+    const neutral = matches.find(t => !tmplVariant(t.name));
+    const any = pp || pk || neutral;
+
+    // Один общий шаблон без пометок — показываем одной строкой
+    if (neutral && !pp && !pk) {
+      return `
+    <div class="tmpl-row">
+      <div class="tmpl-icon">📄</div>
+      <div class="tmpl-info">
+        <div class="tmpl-name">${esc(exp.name)}</div>
+        <div class="tmpl-meta">общий шаблон — используется и для ПП, и для ПК</div>
+      </div>
+      <span class="tmpl-status tmpl-ok">✓ есть</span>
+      ${btns(neutral)}
+    </div>`;
+    }
+
+    return `
+    <div class="tmpl-row">
+      <div class="tmpl-icon">${any ? '📄' : '📭'}</div>
+      <div class="tmpl-info" style="width:100%;">
+        <div class="tmpl-name">${esc(exp.name)} <span style="font-weight:400;color:var(--text-mut);font-size:12px;">— два варианта по типу курса</span></div>
+        <div class="tmpl-meta" style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
+          ${variantLine('ПП', pp || neutral, !pp && !!neutral)}
+          ${variantLine('ПК', pk || neutral, !pk && !!neutral)}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  const extra = templates.filter(t => !used.has(t.id));
+
+  el.innerHTML = rows.join('') + (extra.length ? `
     <div style="padding: 12px 16px; font-size: 12px; color: var(--text-mut); border-top: 1px solid var(--border);">Дополнительные шаблоны (не из стандартного набора):</div>
     ${extra.map(t => `
     <div class="tmpl-row">
       <div class="tmpl-icon">📄</div>
       <div class="tmpl-info"><div class="tmpl-name">${esc(t.name)}</div><div class="tmpl-meta">пользовательский</div></div>
-      <button class="btn btn-danger btn-sm btn-icon" onclick="Documents.deleteTemplate(${t.id})">🗑</button>
+      ${btns(t)}
     </div>`).join('')}` : '');
 }
 
