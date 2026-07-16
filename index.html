@@ -1298,8 +1298,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
           <label style="font-size:12.5px; color:var(--text-mut); display:flex; align-items:center; gap:6px;">
             <input type="checkbox" id="smeta-nds" onchange="Courses.toggleNds(this.checked)"> НДС
           </label>
-          <button class="btn btn-ghost btn-sm" onclick="Documents.downloadSmetaXlsx()">⬇ Смета (Excel)</button>
-          <button class="btn btn-ghost btn-sm" onclick="Courses.downloadKalkulyaciya()">⬇ Калькуляция .docx</button>
+          <button class="btn btn-primary btn-sm" onclick="Documents.downloadSmetaXlsx()">⬇ Смета + калькуляция (Excel)</button>
         </div>
       </div>
     </div>
@@ -1419,6 +1418,10 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
       <div class="fld">
         <label>Сумма (в текущем режиме плановая/факт), ₽</label>
         <input class="inp" id="sm-amount" readonly style="background:var(--surface-2);">
+      </div>
+      <div class="fld">
+        <label>Период оказания услуг (для договора ГПХ: с — по)</label>
+        <div style="display:flex;gap:6px;"><input class="inp" type="date" id="sm-service-start"><input class="inp" type="date" id="sm-service-end"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -3710,6 +3713,8 @@ function fmt(d) {
     document.getElementById('sm-planned').value = r.planned_units || '';
     document.getElementById('sm-actual').value = r.actual_units || '';
     document.getElementById('sm-rate').value = r.rate_override != null ? r.rate_override : findRate(p, r.work_type);
+    document.getElementById('sm-service-start').value = r.service_start || '';
+    document.getElementById('sm-service-end').value = r.service_end || '';
     recalcSmetaRowAmount();
     document.getElementById('modal-smeta-row').classList.add('open');
   }
@@ -3727,6 +3732,8 @@ function fmt(d) {
       hours: parseFloat(document.getElementById('sm-actual').value) || parseFloat(document.getElementById('sm-planned').value) || 0,
       rate_override: parseFloat(document.getElementById('sm-rate').value) || null,
       rate: parseFloat(document.getElementById('sm-rate').value) || 0,
+      service_start: document.getElementById('sm-service-start').value || null,
+      service_end: document.getElementById('sm-service-end').value || null,
       amount: (smetaMode === 'plan' ? (parseFloat(document.getElementById('sm-planned').value) || 0) : (parseFloat(document.getElementById('sm-actual').value) || 0)) * (parseFloat(document.getElementById('sm-rate').value) || 0),
     };
     try {
@@ -3829,44 +3836,6 @@ function fmt(d) {
     saveAs(blob, filename);
   }
 
-  async function downloadKalkulyaciya() {
-    const c = calcSmeta();
-    const perStudent = c.headcount ? c.totalExpenses / c.headcount : 0;
-    const typeLabel = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
-    let body = '';
-    body += docxParagraph('Утверждаю', { center: true });
-    body += docxParagraph('Проректор по экономике', { center: true });
-    body += docxParagraph('_____________Р.К. Хайруллин', { center: true });
-    body += docxParagraph('« _____» _______________20___ г.', { center: true });
-    body += docxParagraph('');
-    body += docxParagraph('Калькуляция', { bold: true, center: true });
-    body += docxParagraph(`расходов на проведение курсов ${typeLabel} по программе «${currentCourse.name}»`, { center: true });
-    body += docxParagraph(`Калькуляционная ед. 1 чел.`, { center: true });
-    body += docxParagraph('');
-    const rows = [
-      ['Прямые расходы, в том числе:', c.totalDirect],
-      ['Заработная плата (211)', c.staffCost],
-      ['Начисления на выплаты по оплате труда (213)', c.staffTax],
-      ['Оплата труда по договору подряда (226)', c.gphCost + c.gphTax],
-      ['Прочие работы, услуги (проживание/проезд)', c.expReimb],
-      ['Увеличение стоимости материальных запасов (340)', c.expMaterial + c.expFuel],
-      ['Накладные расходы', c.overhead],
-      ['Общехозяйственные расходы', c.obshchehoz],
-      ['Плановые накопления', c.accumulation],
-      ['НДС', c.nds],
-      ['Стоимость услуг на обучение', c.totalExpenses],
-    ];
-    let tbl = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>`;
-    tbl += docxTableRow([{ text: 'Вид затрат', bold: true }, { text: 'Всего, руб.', bold: true }, { text: 'На 1 слушателя, руб.', bold: true }]);
-    rows.forEach(r => { tbl += docxTableRow([{ text: r[0] }, { text: fmtM(r[1]), right: true }, { text: fmtM(c.headcount ? r[1] / c.headcount : 0), right: true }]); });
-    tbl += `</w:tbl>`;
-    body += tbl;
-    body += docxParagraph('');
-    body += docxParagraph('И.о. начальника ПЭО                                                       И.И. Салахов');
-    body += docxParagraph('Начальник финансового отдела                                       Г.М. Шакирова');
-    await buildAndDownloadDocx(body, `Калькуляция — ${currentCourse.name}.docx`);
-  }
-
   function reloadPeople() { return loadAll(); }
 
   return {
@@ -3880,8 +3849,8 @@ function fmt(d) {
     setSmetaMode, toggleNds, saveSmetaSettings,
     openAddSmetaRow, openEditSmetaRow, saveSmetaRow, deleteSmetaRow, updateSmetaRateHint, recalcSmetaRowAmount,
     openAddScheduleRow, openEditScheduleRow, saveScheduleRow, deleteScheduleRow,
+    getCurrentCourse: () => currentCourse,
     openAddExpense, openEditExpense, saveExpense, deleteExpense,
-    downloadKalkulyaciya,
   };
 })();
 
@@ -4325,24 +4294,44 @@ function buildStudentData(enr) {
   };
 }
 
-function buildSpecData(spec) {
+function buildSpecData(specOrGroup) {
+  // Может прийти одна строка или все строки услуг одного человека (несколько ролей в одном договоре)
+  const group = Array.isArray(specOrGroup) ? specOrGroup : [specOrGroup];
+  const spec = group[0];
   const base = buildCourseData();
   const person = people.find(p => p.id === spec.person_id);
   const femaleSpec = detectFemaleByName(person?.name_nom || '');
+  const unitsOf = (s) => Number(s.actual_units || s.planned_units || s.hours || 0);
+  const rateOf = (s) => Number(s.rate_override != null ? s.rate_override : (s.rate || 0));
+  const totalHours = group.reduce((a, s) => a + unitsOf(s), 0);
+  const totalAmount = group.reduce((a, s) => a + unitsOf(s) * rateOf(s), 0) || Number(spec.amount || 0);
+  const roleOf = (s) => s.work_type === 'иак' ? 'член итоговой аттестационной комиссии'
+    : (s.role && s.role !== s.work_type ? s.role : (s.work_type === 'внеучебная' ? 'внеучебная работа' : 'проведение учебных занятий'));
+  const services = group.map(s => `${roleOf(s)} — ${unitsOf(s)} ${s.work_type === 'внеучебная' ? 'функц. ед.' : 'час.'} × ${rateOf(s).toLocaleString('ru-RU')} ₽`).join('; ');
+  const starts = group.map(s => s.service_start).filter(Boolean).sort();
+  const ends = group.map(s => s.service_end).filter(Boolean).sort();
+  const periodStart = starts[0] || spec.service_date || null;
+  const periodEnd = ends[ends.length - 1] || spec.service_date || null;
+  const period = periodStart && periodEnd && periodStart !== periodEnd
+    ? `с ${fmtRus(periodStart)} по ${fmtRus(periodEnd)}`
+    : fmtRus(periodStart || periodEnd);
   return {
     ...base,
     ФИО_СПЕЦИАЛИСТ: person?.name_nom || '',
     ИНИЦИАЛЫ_СПЕЦИАЛИСТ: person?.initials || '',
     ИМЕНУЕМЫЙ_СПЕЦ: femaleSpec ? 'именуемая' : 'именуемый',
     ГРАЖДАНИН: femaleSpec ? 'гражданка' : 'гражданин',
-    РОЛЬ_СПЕЦИАЛИСТ: spec.role || '',
-    ЧАСЫ_ГПХ: String(spec.hours || 0),
-    СТОИМОСТЬ_ГПХ: spec.amount ? Number(spec.amount).toLocaleString('ru-RU') : '',
+    РОЛЬ_СПЕЦИАЛИСТ: group.length > 1 ? services : (roleOf(spec) || spec.role || ''),
+    УСЛУГИ_ГПХ: services,
+    ЧАСЫ_ГПХ: String(totalHours || spec.hours || 0),
+    СТОИМОСТЬ_ГПХ: totalAmount ? totalAmount.toLocaleString('ru-RU') : '',
     СТОИМОСТЬ_ПРОПИСЬ_ГПХ: spec.amount_words || '',
     НОМЕР_ДОГОВОРА_ГПХ: spec.gph_contract_number || '',
     ДАТА_ДОГОВОРА_ГПХ: fmtRus(spec.gph_contract_date),
-    ДАТА_АКТА: fmtRus(spec.act_date) || fmtRus(spec.service_date),
-    ДАТА_УСЛУГИ: fmtRus(spec.service_date),
+    ДАТА_АКТА: fmtRus(spec.act_date) || (periodEnd ? fmtRus(periodEnd) : fmtRus(spec.service_date)),
+    ДАТА_УСЛУГИ: period || fmtRus(spec.service_date),
+    ДАТА_УСЛУГИ_НАЧ: fmtRus(periodStart),
+    ДАТА_УСЛУГИ_КОН: fmtRus(periodEnd),
     ПАСПОРТ_СПЕЦИАЛИСТ: person?.passport || '',
     ПАСПОРТ_ВЫДАН_СПЕЦ: person?.passport_issued || '',
     СНИЛС_СПЕЦИАЛИСТ: person?.snils || '',
@@ -4505,8 +4494,19 @@ async function buildSmetaUpdates() {
 async function genSmetaXlsx(tmpl) {
   const ab = await fetchTemplateFile(tmpl);
   const zip = await JSZip.loadAsync(ab);
-  if (!zip.files['xl/workbook.xml']) throw new Error('Шаблон сметы должен быть файлом .xlsx');
-  const sheetFn = zip.files['xl/worksheets/sheet1.xml'] ? 'xl/worksheets/sheet1.xml'
+  if (!zip.files['xl/workbook.xml']) throw new Error('Шаблон сметы должен быть файлом .xlsx — удалите Word-версию и загрузите «Смета (ПК)»/«Смета (ПП)» .xlsx');
+  // находим лист «справка» по имени через workbook.xml → rels
+  let sheetFn = null;
+  try {
+    const wb = await zip.files['xl/workbook.xml'].async('string');
+    const rels = await zip.files['xl/_rels/workbook.xml.rels'].async('string');
+    const m = wb.match(/<sheet[^>]*name="справка"[^>]*r:id="(rId\d+)"/) || wb.match(/<sheet[^>]*r:id="(rId\d+)"[^>]*name="справка"/);
+    if (m) {
+      const rm = rels.match(new RegExp('<Relationship[^>]*Id="' + m[1] + '"[^>]*Target="([^"]+)"'));
+      if (rm) sheetFn = 'xl/' + rm[1].replace(/^\//, '').replace(/^xl\//, '');
+    }
+  } catch (e) { /* fallback ниже */ }
+  if (!sheetFn || !zip.files[sheetFn]) sheetFn = zip.files['xl/worksheets/sheet1.xml'] ? 'xl/worksheets/sheet1.xml'
     : Object.keys(zip.files).find(f => /^xl\/worksheets\/sheet\d+\.xml$/.test(f));
   let xml = await zip.files[sheetFn].async('string');
   xml = setXlsxCells(xml, await buildSmetaUpdates());
@@ -4545,6 +4545,7 @@ function schedTeacherFull(r) {
 }
 
 async function downloadScheduleDocx() {
+  try { await ensureCourseCtx(); } catch (e) { alert(e.message); return; }
   const tmpl = findTmpl(['расписание']);
   if (!tmpl) { alert('Загрузите шаблон «Расписание» (.docx) во вкладке Шаблоны'); return; }
   try {
@@ -4599,6 +4600,7 @@ async function downloadScheduleDocx() {
 
 async function downloadSchedulePng() {
   try {
+    await ensureCourseCtx();
     const days = await fetchScheduleRows();
     const типРод = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
     const el = document.createElement('div');
@@ -4638,8 +4640,19 @@ async function downloadSchedulePng() {
   } catch (e) { alert('Ошибка: ' + e.message); }
 }
 
+// Синхронизация: кнопки на вкладке курса зовут функции этого модуля, у которого свой currentCourse
+async function ensureCourseCtx() {
+  const cc = (window.Courses && Courses.getCurrentCourse) ? Courses.getCurrentCourse() : null;
+  if (cc && (!currentCourse || currentCourse.id !== cc.id || !courseData)) {
+    currentCourse = cc;
+    await loadCourseData();
+  }
+  if (!currentCourse) throw new Error('Курс не выбран');
+}
+
 // Скачивание сметы Excel со вкладки курса (шаблон подбирается по типу программы)
 async function downloadSmetaXlsx() {
+  try { await ensureCourseCtx(); } catch (e) { alert(e.message); return; }
   const tmpl = findTmpl(['смета']);
   if (!tmpl) { alert('Шаблон сметы не найден. Загрузите «Смета (ПК)» и «Смета (ПП)» (.xlsx) во вкладке Шаблоны.'); return; }
   try {
@@ -4816,10 +4829,13 @@ async function generateAll() {
       const tmpl = findTmpl(d.keywords);
       if (!tmpl) { logMsg(`⚠️ Шаблон для "${d.label}" не найден`, 'warn'); continue; }
 
-      for (const spec of courseData.specialists) {
+      const specGroups = {};
+      courseData.specialists.forEach(s => { (specGroups[s.person_id] = specGroups[s.person_id] || []).push(s); });
+      for (const group of Object.values(specGroups)) {
+        const spec = group[0];
         try {
           const person = people.find(p => p.id === spec.person_id);
-          const data = buildSpecData(spec);
+          const data = buildSpecData(group);
           const blob = await genDocx(tmpl, data);
           const ab = await blob.arrayBuffer();
           const spParts = (person?.name_nom || '').split(' ');
@@ -5244,6 +5260,38 @@ const AI = (() => {
 **Служебные (по необходимости, не для каждого курса)**
 - Приказ о смене ФИО слушателя — на основании свидетельства о браке/перемене имени
 - Приказ о внесении изменений в приказ — правка уже изданного приказа
+
+═══ ПОШАГОВЫЙ ПОРЯДОК РАБОТЫ СОТРУДНИКА (типовой сценарий «от и до») ═══
+
+**А. Старт курса**
+1. Рассылка слушателям: курс начинается, даты проведения, ссылка на Telegram-чат, ссылка на Яндекс-форму для персональных данных (+ бланки заявления и согласия во вложении, с дедлайном заполнения).
+2. Приказ о проведении курса — датируется первым днём курса либо днём ранее. Если группа ещё не набрана или не все заполнили Яндекс-форму — номер приказа БРОНИРУЕТСЯ (служебная записка о брони), а подписывается приказ только когда есть точный список слушателей.
+3. Делаешь расписание занятий → направляешь слушателям; загружаешь учебные материалы на платформу дистанционного обучения; подключаешься к лекциям; записи лекций сохраняешь и загружаешь на платформу.
+4. Приказ об отчислении — оформляется на следующий день после окончания курса: либо бронируешь номер, либо сразу заливаешь в ЭДО и пускаешь на подпись.
+
+**Б. Маршрут подписания приказов (о проведении, об отчислении и т.п.)**
+1. Директор ИДО Э.Р. Румянцева (всегда первая).
+2. Проректор по учебной работе А.В. Павлова.
+3. Юристы: проверяют документ, визируют карандашом и заносят А.Р. Зайнуллину (либо заносишь ему сам).
+4. А.Р. Зайнуллин подписывает.
+5. Относишь на 12-й этаж: подписывают А.Р. Шарапов и ректор Р.Т. Бурганов.
+6. Отдаёшь в отдел делопроизводства «на заливку» (регистрация: присвоение номера и даты).
+
+**В. Завершение курса**
+1. ФРДО (Федеральный реестр документов об образовании): сведения о выданных документах нужно залить В ТЕЧЕНИЕ 45 ДНЕЙ после окончания курса — жёсткий срок.
+2. Акт на списание бланков и ведомость выдачи удостоверений/дипломов.
+3. Печатаешь удостоверения (ПК) / дипломы (ПП): на них расписываешься сам, расписывается ректор, ставится печать.
+4. Сканируешь подписанные удостоверения → направляешь слушателям сканы.
+5. Создаёшь отдельную Яндекс-форму для сбора почтовых адресов; удостоверения тех, кто указал адрес, отдаёшь на отправку почтой. Отправка идёт примерно полтора месяца — предупреждай слушателей.
+
+**Г. Порядок работы с договором ГПХ (полный цикл)**
+1. Делаешь договор ГПХ. В реестре договоров вбиваешь/присваиваешь номер. Проверяешь все даты и актуальные визы (список свежих виз — на доске в офисе).
+2. Печатаешь договор и акт в ДВУХ экземплярах каждый. В одном акте ставится отметка/печать «услуги оказаны в полном объёме».
+3. К договору ГПХ прилагаются: приказ об организации проведения курса, согласие специалиста на обработку персональных данных и полный пакет его документов.
+4. Маршрут подписания ГПХ: Э.Р. Румянцева (первая) → А.В. Павлова → планово-экономический отдел → В.Р. Садыкова (Венера Рахимовна, ПФУ) → юристы → Г.Б. Таменова (закупки) → главный бухгалтер Г.К. Мухамедкаримова → А.Р. Шарапов.
+5. После всех подписей ставишь гербовые печати в ЧЕТЫРЁХ местах: в двух экземплярах договора и в двух актах.
+6. На оплату сдаёшь: договор и акт с листом согласования и отметкой «услуги оказаны в полном объёме» + весь пакет документов (включая приказ).
+7. Приказ забираешь обратно в офис. Экземпляр специалиста тоже забираешь в офис и отдаёшь ему лично либо отправляешь сканом.
 
 ═══ ДВЕ РАЗНЫЕ ЦЕПОЧКИ СОГЛАСОВАНИЯ — НЕ ПУТАТЬ ═══
 
