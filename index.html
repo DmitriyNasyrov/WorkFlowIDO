@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 
 
@@ -1264,12 +1265,24 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
 
   <!-- TAB: Расписание -->
   <div id="tab-schedule" class="tab-content" style="display: none;">
-    <div class="card card-pad">
+    <div class="card card-pad" style="margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h3 class="card-title">Расписание сессий курса</h3>
         <button class="btn btn-ghost btn-sm" onclick="Courses.downloadScheduleImage()">⬇ Скачать как картинку</button>
       </div>
       <div id="schedule-timeline"></div>
+    </div>
+    <div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div class="section-title" style="margin:0;">Расписание занятий (по дням и парам)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="Courses.openAddScheduleRow('lesson')">+ Занятие</button>
+          <button class="btn btn-ghost btn-sm" onclick="Courses.openAddScheduleRow('break')">+ Перерыв</button>
+          <button class="btn btn-primary btn-sm" onclick="Documents.downloadSchedulePng()">⬇ Для слушателей (PNG)</button>
+          <button class="btn btn-primary btn-sm" onclick="Documents.downloadScheduleDocx()">⬇ Внутреннее (.docx)</button>
+        </div>
+      </div>
+      <div id="schedule-table"></div>
     </div>
   </div>
 
@@ -1285,7 +1298,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
           <label style="font-size:12.5px; color:var(--text-mut); display:flex; align-items:center; gap:6px;">
             <input type="checkbox" id="smeta-nds" onchange="Courses.toggleNds(this.checked)"> НДС
           </label>
-          <button class="btn btn-ghost btn-sm" onclick="Courses.downloadSmeta()">⬇ Смета .docx</button>
+          <button class="btn btn-ghost btn-sm" onclick="Documents.downloadSmetaXlsx()">⬇ Смета (Excel)</button>
           <button class="btn btn-ghost btn-sm" onclick="Courses.downloadKalkulyaciya()">⬇ Калькуляция .docx</button>
         </div>
       </div>
@@ -1333,6 +1346,30 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-
 <!-- ═══════════════════════════════════════ -->
 <!-- МОДАЛКА: СТРОКА СМЕТЫ (человек + работа) -->
 <!-- ═══════════════════════════════════════ -->
+<div class="overlay" id="modal-schedule-row" onclick="if(event.target===this) Courses.closeOv('modal-schedule-row')">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head"><div class="modal-title" id="schedule-row-title">Занятие</div><button class="btn btn-ghost btn-icon" onclick="Courses.closeOv('modal-schedule-row')">✕</button></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="row-2">
+        <div class="fld"><label>Дата</label><input class="inp" type="date" id="sch-day"></div>
+        <div class="fld" id="sch-time-wrap"><label>Время (с – до)</label>
+          <div style="display:flex;gap:6px;"><input class="inp" id="sch-start" placeholder="14.00"><input class="inp" id="sch-end" placeholder="15.20"></div>
+        </div>
+      </div>
+      <div class="fld" id="sch-disc-wrap"><label>Дисциплина / тема</label><input class="inp" id="sch-discipline"></div>
+      <div class="fld" id="sch-teacher-wrap"><label>Преподаватель (из справочника людей)</label>
+        <select class="sel" id="sch-teacher"><option value="">— не указан —</option></select>
+      </div>
+      <div class="fld" id="sch-platform-wrap"><label>Площадка / аудитория</label><input class="inp" id="sch-platform" value="Платформа для дистанционного обучения PruffMe"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="sch-del-btn" style="display:none;" onclick="Courses.deleteScheduleRow()">Удалить</button>
+      <button class="btn btn-ghost" onclick="Courses.closeOv('modal-schedule-row')">Отмена</button>
+      <button class="btn btn-primary" onclick="Courses.saveScheduleRow()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-smeta-row" onclick="if(event.target===this) Courses.closeOv('modal-smeta-row')">
   <div class="modal">
     <div class="modal-head">
@@ -2653,7 +2690,7 @@ function setTab(tab, btn) {
   if (btn) btn.classList.add('act');
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
   document.getElementById('tab-' + tab).style.display = 'block';
-  if (tab === 'schedule') renderSchedule();
+  if (tab === 'schedule') { renderSchedule(); loadScheduleTable(); }
   if (tab === 'smeta') renderSmetaTab();
 }
 
@@ -3260,6 +3297,129 @@ function fillField(id, val) { const el = document.getElementById(id); if (el) el
 function getVal(id) { return (document.getElementById(id).value || '').trim(); }
 
 // ═══════════ РАСПИСАНИЕ КУРСА ═══════════
+// ── Расписание занятий (по дням и парам) ──
+let scheduleRows = [];
+let editingScheduleRow = null;
+
+async function loadScheduleTable() {
+  try {
+    const { data } = await DB.client.from('course_schedule').select('*')
+      .eq('course_id', currentCourse.id).order('day').order('sort').order('id');
+    scheduleRows = data || [];
+  } catch (e) { scheduleRows = []; }
+  renderScheduleTable();
+}
+
+function renderScheduleTable() {
+  const el = document.getElementById('schedule-table');
+  if (!el) return;
+  if (!scheduleRows.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🗓</div><div class="empty-title">Занятий не добавлено</div><div class="empty-sub">Добавьте занятия и перерывы — из них соберутся оба варианта расписания</div></div>`;
+    return;
+  }
+  const byDay = {};
+  scheduleRows.forEach(r => { (byDay[r.day] = byDay[r.day] || []).push(r); });
+  const dayTitle = (d) => {
+    const dt = new Date(d + 'T00:00:00');
+    const wd = dt.toLocaleDateString('ru-RU', { weekday: 'long' });
+    return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()} (${wd})`;
+  };
+  el.innerHTML = Object.keys(byDay).sort().map(day => `
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700;margin:8px 0 6px;">${dayTitle(day)}</div>
+      <table><thead><tr><th style="width:110px;">Время</th><th>Дисциплина</th><th>Преподаватель</th><th>Площадка</th></tr></thead>
+      <tbody>${byDay[day].map(r => {
+        if (r.kind === 'break') return `<tr style="cursor:pointer;background:var(--bg-soft,transparent);" onclick="Courses.openEditScheduleRow(${r.id})"><td colspan="4" style="font-style:italic;">Перерыв с ${esc(r.time_start)} до ${esc(r.time_end)}</td></tr>`;
+        const p = people.find(x => x.id === r.teacher_person_id);
+        return `<tr style="cursor:pointer;" onclick="Courses.openEditScheduleRow(${r.id})">
+          <td>${esc(r.time_start)}–${esc(r.time_end)}</td>
+          <td>${esc(r.discipline)}</td>
+          <td>${esc(p?.name_nom || '')}</td>
+          <td style="font-size:12px;color:var(--text-mut);">${esc(r.platform || '')}</td>
+        </tr>`;
+      }).join('')}</tbody></table>
+    </div>`).join('');
+}
+
+function fillScheduleTeacherSelect() {
+  const sel = document.getElementById('sch-teacher');
+  sel.innerHTML = '<option value="">— не указан —</option>' +
+    people.slice().sort((a,b) => (a.name_nom||'').localeCompare(b.name_nom||'', 'ru'))
+      .map(p => `<option value="${p.id}">${esc(p.name_nom)}</option>`).join('');
+}
+
+function openAddScheduleRow(kind) {
+  editingScheduleRow = null;
+  fillScheduleTeacherSelect();
+  document.getElementById('schedule-row-title').textContent = kind === 'break' ? 'Перерыв' : 'Занятие';
+  document.getElementById('sch-del-btn').style.display = 'none';
+  const last = scheduleRows[scheduleRows.length - 1];
+  document.getElementById('sch-day').value = last?.day || currentCourse.start_date || '';
+  document.getElementById('sch-start').value = '';
+  document.getElementById('sch-end').value = '';
+  document.getElementById('sch-discipline').value = '';
+  document.getElementById('sch-teacher').value = '';
+  document.getElementById('sch-platform').value = last?.platform || 'Платформа для дистанционного обучения PruffMe';
+  const isBreak = kind === 'break';
+  document.getElementById('sch-disc-wrap').style.display = isBreak ? 'none' : 'block';
+  document.getElementById('sch-teacher-wrap').style.display = isBreak ? 'none' : 'block';
+  document.getElementById('sch-platform-wrap').style.display = isBreak ? 'none' : 'block';
+  document.getElementById('modal-schedule-row').dataset.kind = kind;
+  document.getElementById('modal-schedule-row').classList.add('open');
+}
+
+function openEditScheduleRow(id) {
+  editingScheduleRow = scheduleRows.find(r => r.id === id);
+  if (!editingScheduleRow) return;
+  const r = editingScheduleRow;
+  fillScheduleTeacherSelect();
+  document.getElementById('schedule-row-title').textContent = r.kind === 'break' ? 'Перерыв' : 'Занятие';
+  document.getElementById('sch-del-btn').style.display = 'inline-flex';
+  document.getElementById('sch-day').value = r.day;
+  document.getElementById('sch-start').value = r.time_start || '';
+  document.getElementById('sch-end').value = r.time_end || '';
+  document.getElementById('sch-discipline').value = r.discipline || '';
+  document.getElementById('sch-teacher').value = r.teacher_person_id || '';
+  document.getElementById('sch-platform').value = r.platform || '';
+  const isBreak = r.kind === 'break';
+  document.getElementById('sch-disc-wrap').style.display = isBreak ? 'none' : 'block';
+  document.getElementById('sch-teacher-wrap').style.display = isBreak ? 'none' : 'block';
+  document.getElementById('sch-platform-wrap').style.display = isBreak ? 'none' : 'block';
+  document.getElementById('modal-schedule-row').dataset.kind = r.kind;
+  document.getElementById('modal-schedule-row').classList.add('open');
+}
+
+async function saveScheduleRow() {
+  const kind = document.getElementById('modal-schedule-row').dataset.kind || 'lesson';
+  const day = document.getElementById('sch-day').value;
+  if (!day) { alert('Укажите дату'); return; }
+  const data = {
+    course_id: currentCourse.id,
+    day,
+    kind,
+    time_start: document.getElementById('sch-start').value.trim(),
+    time_end: document.getElementById('sch-end').value.trim(),
+    discipline: kind === 'break' ? '' : document.getElementById('sch-discipline').value.trim(),
+    teacher_person_id: kind === 'break' ? null : (parseInt(document.getElementById('sch-teacher').value) || null),
+    platform: kind === 'break' ? '' : document.getElementById('sch-platform').value.trim(),
+    sort: editingScheduleRow ? editingScheduleRow.sort : (scheduleRows.filter(r => r.day === day).length + 1),
+  };
+  try {
+    if (editingScheduleRow) await DB.client.from('course_schedule').update(data).eq('id', editingScheduleRow.id);
+    else await DB.client.from('course_schedule').insert(data);
+    closeOv('modal-schedule-row');
+    await loadScheduleTable();
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+async function deleteScheduleRow() {
+  if (!editingScheduleRow) return;
+  if (!confirm('Удалить строку расписания?')) return;
+  await DB.client.from('course_schedule').delete().eq('id', editingScheduleRow.id);
+  closeOv('modal-schedule-row');
+  await loadScheduleTable();
+}
+
 function renderSchedule() {
   const el = document.getElementById('schedule-timeline');
   const c = currentCourse;
@@ -3669,50 +3829,6 @@ function fmt(d) {
     saveAs(blob, filename);
   }
 
-  async function downloadSmeta() {
-    const c = calcSmeta();
-    const typeLabel = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
-    let body = '';
-    body += docxParagraph('Приложение №___', { center: true });
-    body += docxParagraph('УТВЕРЖДЕНА', { center: true });
-    body += docxParagraph('приказом ФГБОУ ВО', { center: true });
-    body += docxParagraph('«Поволжский ГУФКСиТ»', { center: true });
-    body += docxParagraph('от «___»__________20__ г. № ____', { center: true });
-    body += docxParagraph('');
-    body += docxParagraph(`Плановая смета доходов и расходов на проведение курсов ${typeLabel} по программе «${currentCourse.name}»`, { bold: true, center: true });
-    body += docxParagraph('');
-    const rows = [
-      ['ДОХОДЫ', ''],
-      [`Доходы от оказания услуг (${c.headcount} чел. × ${fmtM(c.price)} ₽)`, fmtM(c.revenue) + ' ₽'],
-      ['ИТОГО ДОХОДОВ', fmtM(c.revenue) + ' ₽'],
-      ['РАСХОДЫ', ''],
-      ['Заработная плата (211)', fmtM(c.staffCost) + ' ₽'],
-      ['Начисления на выплаты по оплате труда (213)', fmtM(c.staffTax) + ' ₽'],
-      ['Оплата труда по договорам ГПХ (226)', fmtM(c.gphCost) + ' ₽'],
-      ['Начисления на выплаты по ГПХ', fmtM(c.gphTax) + ' ₽'],
-      ['Возмещение расходов (проезд/проживание/аренда, 222/226)', fmtM(c.expReimb) + ' ₽'],
-      ['Увеличение стоимости материальных запасов — раздаточный материал (340/346)', fmtM(c.expMaterial) + ' ₽'],
-      ['ГСМ (340)', fmtM(c.expFuel) + ' ₽'],
-      ['Прочее', fmtM(c.expOther) + ' ₽'],
-      ['Прямые расходы, всего', fmtM(c.totalDirect) + ' ₽'],
-      [`Накладные расходы (${smetaSettings.overhead_pct ?? 10}%)`, fmtM(c.overhead) + ' ₽'],
-      [`Общехозяйственные расходы (${smetaSettings.obshchehoz_pct ?? 10}%)`, fmtM(c.obshchehoz) + ' ₽'],
-      ['Накопления Университета', fmtM(c.accumulation) + ' ₽'],
-      ['НДС', fmtM(c.nds) + ' ₽'],
-      ['ИТОГО РАСХОДОВ', fmtM(c.totalExpenses) + ' ₽'],
-    ];
-    let tbl = `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>`;
-    tbl += docxTableRow([{ text: 'Наименование показателя', bold: true }, { text: 'Сумма, руб.', bold: true }]);
-    rows.forEach(r => { tbl += docxTableRow([{ text: r[0] }, { text: r[1], right: true }]); });
-    tbl += `</w:tbl>`;
-    body += tbl;
-    body += docxParagraph('');
-    body += docxParagraph('Начальник ПЭО                                                            И.И. Салахов');
-    body += docxParagraph('Начальник планово-финансового управления                    В.Р. Садыкова');
-    body += docxParagraph('Директор ИДО                                                              Э.Р. Румянцева');
-    await buildAndDownloadDocx(body, `Смета ${smetaMode === 'plan' ? 'плановая' : 'финальная'} — ${currentCourse.name}.docx`);
-  }
-
   async function downloadKalkulyaciya() {
     const c = calcSmeta();
     const perStudent = c.headcount ? c.totalExpenses / c.headcount : 0;
@@ -3763,8 +3879,9 @@ function fmt(d) {
     downloadScheduleImage, closeOv, reloadPeople,
     setSmetaMode, toggleNds, saveSmetaSettings,
     openAddSmetaRow, openEditSmetaRow, saveSmetaRow, deleteSmetaRow, updateSmetaRateHint, recalcSmetaRowAmount,
+    openAddScheduleRow, openEditScheduleRow, saveScheduleRow, deleteScheduleRow,
     openAddExpense, openEditExpense, saveExpense, deleteExpense,
-    downloadSmeta, downloadKalkulyaciya,
+    downloadKalkulyaciya,
   };
 })();
 
@@ -3787,7 +3904,7 @@ let courseData = null; // {course, enrollments, specialists, commission, signer}
 // Типы документов и их генерация
 const DOC_TYPES = [
   {id: 'order_holding',    label: 'Приказ о проведении курсов',          scope: 'group',    keywords: ['проведении','пп афк','проведения курсов']},
-  {id: 'order_org',        label: 'Приказ об организации (смета)',        scope: 'group',    keywords: ['организаци','смет','кпп афк']},
+  {id: 'order_org',        label: 'Приказ об организации (смета)',        scope: 'group',    keywords: ['организаци','кпп афк']},
   {id: 'order_iak',        label: 'Приказ о создании ИАК',                scope: 'group',    keywords: ['создании иак','иак','аттестационн комисс']},
   {id: 'order_topics',     label: 'Приказ об утверждении тем ИАР',        scope: 'group',    keywords: ['тем иар','утверждении тем','тем ита']},
   {id: 'submission_ido',   label: 'Представление директора ИДО (темы)',   scope: 'group',    keywords: ['представление']},
@@ -4299,8 +4416,27 @@ function setXlsxCells(xml, updates) {
   });
 }
 
+// Раскладка ячеек сметы по типу программы (строки блоков в шаблонах ПК и ПП различаются)
+const SMETA_LAYOUTS = {
+  pk: {
+    staffUch: [14, 33], staffVne: [35, 45], gphUch: [50, 64], gphVne: [66, 74],
+    vozm: [80, 92], vozmCats: ['возмещение', 'гсм', 'прочее'], vozmClearD: true,
+    razd: [94, 103], razdClearD: true, gsm: null,
+    dirCell: 'D127', ndsCell: null, a9Hours: true,
+    titleTail: ' в рамках государственной программы "Развитие физической культуры и спорта"',
+  },
+  pp: {
+    staffUch: [31, 49], staffVne: [16, 29], gphUch: [61, 67], gphVne: [55, 59],
+    vozm: [73, 85], vozmCats: ['возмещение', 'прочее'], vozmClearD: false,
+    razd: [87, 97], razdClearD: false, gsm: [100, 101],
+    dirCell: 'D120', ndsCell: 'K106', a9Hours: false,
+    titleTail: '',
+  },
+};
+
 async function buildSmetaUpdates() {
   const c = currentCourse;
+  const L = SMETA_LAYOUTS[currentProgramType()] || SMETA_LAYOUTS.pp;
   const u = {};
   const rows = courseData.specialists || [];
   let exps = [];
@@ -4323,30 +4459,36 @@ async function buildSmetaUpdates() {
   const staffVne = rows.filter(r => r.is_staff && r.work_type === 'внеучебная').map(toRow);
   const gphUch   = rows.filter(r => !r.is_staff && (r.work_type === 'учебная' || r.work_type === 'иак')).map(toRow);
   const gphVne   = rows.filter(r => !r.is_staff && r.work_type === 'внеучебная').map(toRow);
-  const vozm = exps.filter(e => ['возмещение', 'гсм', 'прочее'].includes(e.category))
+  const vozm = exps.filter(e => L.vozmCats.includes(e.category))
     .map(e => ({ A: e.name || '', B: Number(e.qty || 0), C: Number(e.price || 0), D: Number(e.kosgu || 226) }));
   const razd = exps.filter(e => e.category === 'раздаточный_материал')
     .map(e => ({ A: e.name || '', B: Number(e.qty || 0), C: Number(e.price || 0), D: Number(e.kosgu || 346) }));
+  const gsm = exps.filter(e => e.category === 'гсм')
+    .map(e => ({ A: e.name || '', B: Number(e.qty || 0), C: Number(e.price || 0) }));
 
-  const fill = (list, start, end, emptyRow) => {
+  const warn = (m) => { try { logMsg(m, 'warn'); } catch (e) { console.warn(m); } };
+  const fill = (list, range, emptyRow) => {
+    if (!range) { if (list.length) warn('⚠️ Смета: для этой раскладки нет блока под часть строк'); return; }
+    const [start, end] = range;
     let r = start;
     for (const item of list) {
-      if (r > end) { logMsg(`⚠️ Смета: блок строк ${start}–${end} переполнен, часть строк не вошла`, 'warn'); break; }
+      if (r > end) { warn(`⚠️ Смета: блок строк ${start}–${end} переполнен, часть строк не вошла`); break; }
       for (const [col, val] of Object.entries(item)) u[`${col}${r}`] = val;
       r++;
     }
     for (; r <= end; r++) for (const [col, val] of Object.entries(emptyRow)) u[`${col}${r}`] = val;
   };
-  fill(staffUch, 14, 33, { A: null, B: null, C: null });
-  fill(staffVne, 35, 45, { A: null, B: null, C: 5500 });
-  fill(gphUch, 50, 64, { A: null, B: null, C: null });
-  fill(gphVne, 66, 74, { A: null, B: null, C: 5500 });
-  fill(vozm, 80, 92, { A: null, B: null, C: null, D: null });
-  fill(razd, 94, 103, { A: null, B: null, C: null, D: null });
+  fill(staffUch, L.staffUch, { A: null, B: null, C: null });
+  fill(staffVne, L.staffVne, { A: null, B: null, C: 5500 });
+  fill(gphUch, L.gphUch, { A: null, B: null, C: null });
+  fill(gphVne, L.gphVne, { A: null, B: null, C: 5500 });
+  fill(vozm, L.vozm, L.vozmClearD ? { A: null, B: null, C: null, D: null } : { A: null, B: null, C: null });
+  fill(razd, L.razd, L.razdClearD ? { A: null, B: null, C: null, D: null } : { A: null, B: null, C: null });
+  if (L.gsm) fill(gsm, L.gsm, { B: null, C: null });
 
   const типРод = c.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
-  u['A6'] = `Смета доходов и расходов на проведение курсов ${типРод} по программе «${c.name || ''}» в рамках государственной программы "Развитие физической культуры и спорта"`;
-  u['A9'] = `Итого доходов (за счет средств сторонних организаций и физ.лиц) ${c.hours || 0} часов`;
+  u['A6'] = `Смета доходов и расходов на проведение курсов ${типРод} по программе «${c.name || ''}»${L.titleTail}`;
+  if (L.a9Hours) u['A9'] = `Итого доходов (за счет средств сторонних организаций и физ.лиц) ${c.hours || 0} часов`;
   u['B9'] = Number(c.planned_capacity || (courseData.enrollments || []).length || 0);
   if (c.price) u['C9'] = Number(c.price);
   const dv = document.getElementById('g-doc-date')?.value || c.main_order_date;
@@ -4355,7 +4497,8 @@ async function buildSmetaUpdates() {
     u['C5'] = `от "${f[0]}" ${f[1]} ${f[2]} г. № ${c.org_order_number || '____'}`;
   }
   const dirIDO = people.find(p => /директор.*идо/i.test(p.position_nom || '') || /директор.*институт.*доп/i.test(p.position_nom || ''));
-  u['D127'] = dirIDO?.initials || '';
+  u[L.dirCell] = dirIDO?.initials || '';
+  if (L.ndsCell) u[L.ndsCell] = c.nds_enabled ? 1 : 0;
   return u;
 }
 
@@ -4375,6 +4518,134 @@ async function genSmetaXlsx(tmpl) {
     zip.file('xl/workbook.xml', wbXml);
   }
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+// ═══ РАСПИСАНИЕ: внутренний docx (шаблон с шапкой-картинкой) и PNG для слушателей ═══
+async function fetchScheduleRows() {
+  const { data, error } = await DB.client.from('course_schedule').select('*')
+    .eq('course_id', currentCourse.id).order('day').order('sort').order('id');
+  if (error) throw new Error(error.message);
+  if (!data || !data.length) throw new Error('Расписание пустое — добавьте занятия во вкладке «Расписание»');
+  const byDay = {};
+  data.forEach(r => { (byDay[r.day] = byDay[r.day] || []).push(r); });
+  return Object.keys(byDay).sort().map(day => ({ day, rows: byDay[day] }));
+}
+
+function schedDayTitle(day) {
+  const dt = new Date(day + 'T00:00:00');
+  const wd = dt.toLocaleDateString('ru-RU', { weekday: 'long' });
+  return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()} (${wd})`;
+}
+
+function schedTeacherFull(r) {
+  const p = people.find(x => x.id === r.teacher_person_id);
+  if (!p) return '';
+  const reg = [p.academic_degree, p.academic_title, p.position_nom, p.department].filter(Boolean).join(', ');
+  return reg ? `${p.name_nom}\n${reg}` : p.name_nom;
+}
+
+async function downloadScheduleDocx() {
+  const tmpl = findTmpl(['расписание']);
+  if (!tmpl) { alert('Загрузите шаблон «Расписание» (.docx) во вкладке Шаблоны'); return; }
+  try {
+    const days = await fetchScheduleRows();
+    const ab = await fetchTemplateFile(tmpl);
+    const zip = await JSZip.loadAsync(ab);
+    let xml = await zip.files['word/document.xml'].async('string');
+    xml = fixSplits(xml);
+
+    // Прототипы: абзац с {{ДЕНЬ}} и таблица с {{ВРЕМЯ}}/{{ПЕРЕРЫВ}}
+    const dayM = xml.match(/<w:p[ >](?:(?!<\/w:p>).)*?\{\{ДЕНЬ\}\}(?:(?!<\/w:p>).)*?<\/w:p>/s);
+    const tblM = xml.match(/<w:tbl>(?:(?!<\/w:tbl>).)*?\{\{ВРЕМЯ\}\}(?:(?!<\/w:tbl>).)*?<\/w:tbl>/s);
+    if (!dayM || !tblM) { alert('В шаблоне «Расписание» не найдены метки {{ДЕНЬ}}/{{ВРЕМЯ}} — используйте подготовленный шаблон'); return; }
+    const dayProto = dayM[0];
+    const tblProto = tblM[0];
+    const trs = tblProto.match(/<w:tr[ >](?:(?!<\/w:tr>).)*?<\/w:tr>/gs) || [];
+    const lessonProto = trs.find(t => t.includes('{{ВРЕМЯ}}'));
+    const breakProto = trs.find(t => t.includes('{{ПЕРЕРЫВ}}'));
+    const tblHead = tblProto.slice(0, tblProto.indexOf('<w:tr'));
+
+    const put = (proto, map) => {
+      let out = proto;
+      for (const [k, v] of Object.entries(map)) {
+        const safe = escapeXml(v || '').split('\n').join('</w:t><w:br/><w:t xml:space="preserve">');
+        out = out.split('{{' + k + '}}').join(safe);
+      }
+      return out;
+    };
+
+    const blocks = days.map(d => {
+      const rowsXml = d.rows.map(r => r.kind === 'break'
+        ? put(breakProto, { ПЕРЕРЫВ: `Перерыв с ${r.time_start} до ${r.time_end}` })
+        : put(lessonProto, {
+            ВРЕМЯ: `${r.time_start}-${r.time_end}`,
+            ДИСЦИПЛИНА: r.discipline || '',
+            ПРЕПОДАВАТЕЛЬ: schedTeacherFull(r),
+            ПЛОЩАДКА: r.platform || '',
+          })).join('');
+      return put(dayProto, { ДЕНЬ: schedDayTitle(d.day) }) + tblHead + rowsXml + '</w:tbl>';
+    }).join('');
+
+    xml = xml.replace(dayProto + tblProto, blocks);
+    // общие метки шапки
+    const типРод = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
+    xml = xml.split('{{ПРОГРАММА}}').join(escapeXml(currentCourse.name || ''));
+    xml = xml.split('{{ТИП_РОД}}').join(типРод);
+    zip.file('word/document.xml', xml);
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    saveAs(blob, `Расписание — ${currentCourse.name}.docx`);
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+async function downloadSchedulePng() {
+  try {
+    const days = await fetchScheduleRows();
+    const типРод = currentCourse.type === 'pk' ? 'повышения квалификации' : 'профессиональной переподготовки';
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:-10000px;top:0;width:900px;background:#ffffff;color:#1a1f2e;font-family:Georgia,serif;padding:44px 48px;box-sizing:border-box;';
+    el.innerHTML = `
+      <div style="border-bottom:3px solid #1f5c45;padding-bottom:18px;margin-bottom:8px;">
+        <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#1f5c45;font-weight:700;">Поволжский ГУФКСиТ · Институт дополнительного образования</div>
+        <div style="font-size:26px;font-weight:700;margin-top:10px;line-height:1.25;">Расписание занятий</div>
+        <div style="font-size:15px;margin-top:6px;color:#3a4256;">курсов ${типРод} по программе<br><i>«${esc(currentCourse.name || '')}»</i></div>
+        <div style="font-size:12.5px;margin-top:8px;color:#6b7280;">Время в расписании — московское (UTC +3)</div>
+      </div>
+      ${days.map(d => `
+        <div style="margin-top:22px;">
+          <div style="display:inline-block;background:#1f5c45;color:#fff;font-size:14px;font-weight:700;padding:5px 14px;border-radius:6px;">${schedDayTitle(d.day)}</div>
+          <div style="margin-top:10px;border:1px solid #e2e6ee;border-radius:10px;overflow:hidden;">
+            ${d.rows.map((r, i) => {
+              const bt = i ? 'border-top:1px solid #e2e6ee;' : '';
+              if (r.kind === 'break') return `<div style="${bt}background:#f6f8f7;padding:9px 16px;font-size:13px;color:#6b7280;font-style:italic;text-align:center;">— перерыв с ${esc(r.time_start)} до ${esc(r.time_end)} —</div>`;
+              const p = people.find(x => x.id === r.teacher_person_id);
+              const reg = p ? [p.academic_degree, p.academic_title].filter(Boolean).join(', ') : '';
+              return `<div style="${bt}display:flex;gap:16px;padding:12px 16px;align-items:flex-start;">
+                <div style="min-width:96px;font-weight:700;color:#1f5c45;font-size:15px;">${esc(r.time_start)}–${esc(r.time_end)}</div>
+                <div style="flex:1;">
+                  <div style="font-size:15px;font-weight:600;line-height:1.3;">${esc(r.discipline || '')}</div>
+                  ${p ? `<div style="font-size:13px;color:#3a4256;margin-top:3px;">${esc(p.name_nom)}${reg ? ` · <span style="color:#6b7280;">${esc(reg)}</span>` : ''}</div>` : ''}
+                </div>
+                <div style="max-width:170px;font-size:11.5px;color:#8a93a5;text-align:right;">${esc(r.platform || '')}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`).join('')}
+      <div style="margin-top:26px;padding-top:12px;border-top:1px solid #e2e6ee;font-size:11.5px;color:#8a93a5;">Институт дополнительного образования ФГБОУ ВО «Поволжский ГУФКСиТ» · Казань</div>`;
+    document.body.appendChild(el);
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+    document.body.removeChild(el);
+    canvas.toBlob(b => saveAs(b, `Расписание — ${currentCourse.name}.png`), 'image/png');
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+// Скачивание сметы Excel со вкладки курса (шаблон подбирается по типу программы)
+async function downloadSmetaXlsx() {
+  const tmpl = findTmpl(['смета']);
+  if (!tmpl) { alert('Шаблон сметы не найден. Загрузите «Смета (ПК)» и «Смета (ПП)» (.xlsx) во вкладке Шаблоны.'); return; }
+  try {
+    const blob = await genSmetaXlsx(tmpl);
+    saveAs(blob, `Смета — ${currentCourse?.name || 'курс'}.xlsx`);
+  } catch (e) { alert('Ошибка формирования сметы: ' + e.message); }
 }
 
 async function genDocx(tmpl, data) {
@@ -4614,13 +4885,14 @@ const EXPECTED_TEMPLATES = [
   {name: 'Приказ об организации', typed: true},
   {name: 'Приказ о создании ИАК', typed: true},
   {name: 'Приказ об утверждении тем ИАР', typed: true},
-  {name: 'Представление директора ИДО', typed: true},
+  {name: 'Представление директора ИДО'},
   {name: 'Приказ о допуске к ИА'},
   {name: 'Приказ об отчислении', typed: true},
   {name: 'Смета', typed: true},
   {name: 'Отчисление по заявлению'},
   {name: 'Справка-вызов'},
   {name: 'Служебная записка'},
+  {name: 'Расписание'},
   {name: 'Научные руководители'},
 ];
 
@@ -4898,7 +5170,7 @@ function closeTextEditor() {
   return {
     init, onCourseChange, selectAll, previewSingle, generateAll,
     switchSubtab, uploadTemplates, deleteTemplate, downloadTemplate,
-    openTextEditor, closeTextEditor, applyTextReplace, toggleDoc, reloadPeople,
+    openTextEditor, closeTextEditor, applyTextReplace, toggleDoc, reloadPeople, downloadSmetaXlsx, downloadScheduleDocx, downloadSchedulePng,
   };
 })();
 
